@@ -460,6 +460,49 @@ async function sheetsRequest(method, path, body) {
 
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby8mY_hwHWzEtT1OUgIwpOkh80bIaadEpFHrrk-9QGPRGfR_Ckff4TdPG17y908_UHM/exec';
 
+async function loadFromSheets() {
+  setSyncState('syncing', '讀取中...');
+  try {
+    const res = await fetch(APPS_SCRIPT_URL);
+    const json = await res.json();
+    if (json.status !== 'ok' || !json.data || json.data.length < 2) {
+      setSyncState('synced', '已連線'); return;
+    }
+    // Parse rows: skip header row, format: date, weekday, pkgs, unitPrice, salary, note
+    const rows = json.data.slice(1); // skip header
+    // Group by year-month
+    const byMonth = {};
+    rows.forEach(row => {
+      const date = row[0];
+      if (!date || typeof date !== 'string' || !date.match(/^\d{4}-\d{2}-\d{2}$/)) return;
+      if (row[2] === '' || row[2] === '總計') return;
+      const pkgs = parseInt(row[2]);
+      const dayPrice = parseFloat(row[3]) || null;
+      const note = row[5] || '';
+      if (isNaN(pkgs)) return;
+      const d = new Date(date + 'T00:00:00');
+      const key = 'records_' + d.getFullYear() + '_' + d.getMonth();
+      if (!byMonth[key]) byMonth[key] = [];
+      // Check not duplicate
+      if (!byMonth[key].find(r => r.date === date)) {
+        byMonth[key].push({ date, pkgs, note, dayPrice: dayPrice !== getPrice() ? dayPrice : null });
+      }
+    });
+    // Save each month
+    Object.entries(byMonth).forEach(([key, records]) => {
+      localStorage.setItem(key, JSON.stringify(records));
+    });
+    setSyncState('synced', '已同步');
+    updateAll();
+    if (typeof mUpdateAll === 'function') mUpdateAll();
+    renderList();
+    showToast('已從試算表載入最新資料 ✓');
+  } catch(e) {
+    setSyncState('error', '讀取失敗');
+    console.error(e);
+  }
+}
+
 async function syncToSheets(records) {
   setSyncState('syncing', '同步中...');
   try {
@@ -824,6 +867,8 @@ function switchRight(view) {
 document.getElementById('dateInput').value = today();
 updateAll();
 renderList();
+// Auto-load from Google Sheets on startup
+loadFromSheets();
 
 // ══════════════════════════════
 // MOBILE JS
@@ -1001,6 +1046,8 @@ window.updateAll = function() { _origUpdateAll(); if(isMobile()) mUpdateAll(); }
 
 // Init mobile on load
 if (isMobile()) mUpdateAll();
+// Mobile: also trigger load
+if (isMobile()) { const mdi = document.getElementById('mDateInput'); if(mdi) mdi.value = today(); }
 
 </script>
 </body>
