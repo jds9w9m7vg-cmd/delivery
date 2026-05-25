@@ -1,0 +1,1001 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="送貨記錄">
+<meta name="theme-color" content="#0f0f1a">
+<title>送貨記錄</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--bg:#0f0f1a;--bg2:#1a1a2e;--bg3:#16213e;--card:#1e1e35;--card2:#252545;--accent:#7c6aff;--accent2:#a89bff;--accent3:#5046c8;--green:#4ade80;--amber:#fbbf24;--red:#f87171;--text:#f0eeff;--text2:#a09bb8;--text3:#6b6688;--border:rgba(124,106,255,0.2);--radius:16px;--radius-sm:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Noto Sans TC',sans-serif;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;height:58px}
+.app-title{font-size:19px;font-weight:700;letter-spacing:-.5px}.app-title span{color:var(--accent2)}
+.month-nav{display:flex;align-items:center;gap:8px}
+.month-nav button{background:var(--card);border:1px solid var(--border);color:var(--text);width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s}
+.month-nav button:hover{background:var(--accent3)}
+.month-label{font-size:14px;font-weight:500;color:var(--text2);min-width:90px;text-align:center}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.nav-btn{background:transparent;border:1px solid var(--border);color:var(--text3);padding:5px 12px;border-radius:8px;font-size:12px;cursor:pointer;font-family:'Noto Sans TC',sans-serif;transition:all .2s}
+.nav-btn:hover{border-color:var(--accent);color:var(--accent2)}
+.nav-btn.active{background:var(--accent3);color:#fff;border-color:var(--accent)}
+.sync-badge{display:flex;align-items:center;gap:5px;font-size:11px;padding:4px 10px;border-radius:20px;border:1px solid var(--border);color:var(--text3);cursor:pointer;background:var(--card);transition:all .2s}
+.sync-badge.synced{color:var(--green);border-color:rgba(74,222,128,.3)}
+.sync-badge.syncing{color:var(--amber);border-color:rgba(251,191,36,.3)}
+.sync-badge.error{color:var(--red);border-color:rgba(248,113,113,.3)}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.summarybar{display:flex;gap:12px;padding:10px 24px;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0}
+.sum-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 16px;display:flex;gap:16px;align-items:center}
+.sum-card.accent{background:linear-gradient(135deg,var(--accent3),var(--accent));border-color:transparent;flex:1}
+.sum-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px}
+.sum-card.accent .sum-label{color:rgba(255,255,255,.6)}
+.sum-value{font-size:19px;font-weight:700;font-family:'DM Mono',monospace;margin-top:1px}
+.sum-card.accent .sum-value{color:#fff}
+.sum-sub{font-size:10px;color:var(--text3);margin-top:1px}
+.sum-card.accent .sum-sub{color:rgba(255,255,255,.5)}
+.main-layout{display:flex;flex:1;overflow:hidden}
+.left-panel{width:360px;min-width:320px;background:var(--bg2);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+.left-panel::-webkit-scrollbar{width:3px}
+.left-panel::-webkit-scrollbar-thumb{background:var(--border)}
+.panel-section{padding:18px 20px}
+.panel-section+.panel-section{border-top:1px solid var(--border)}
+.right-panel{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.right-view{display:none;flex-direction:column;height:100%;overflow:hidden}
+.right-view.active{display:flex}
+.right-scroll{flex:1;overflow-y:auto;padding:18px 24px 40px}
+.right-scroll::-webkit-scrollbar{width:3px}
+.right-scroll::-webkit-scrollbar-thumb{background:var(--border)}
+.form-title{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+.price-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.price-row label{font-size:13px;color:var(--text2);flex:1}
+.price-row input{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:6px 10px;color:var(--accent2);font-size:15px;font-weight:700;font-family:'DM Mono',monospace;outline:none;width:85px;text-align:right}
+.field-group{display:flex;flex-direction:column;gap:5px;margin-bottom:9px}
+.field-group label{font-size:11px;color:var(--text3)}
+.field-group input{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-size:13px;font-family:'Noto Sans TC',sans-serif;outline:none;width:100%}
+.field-group input:focus{border-color:var(--accent)}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.btn-add{width:100%;background:var(--accent);border:none;border-radius:10px;padding:11px;color:#fff;font-size:14px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer;margin-top:4px;transition:opacity .15s}
+.btn-add:hover{opacity:.9}
+.btn-add:disabled{opacity:.5;cursor:not-allowed}
+.section-label{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin:12px 0 8px}
+.record-item{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:6px;display:flex;align-items:center;gap:10px;transition:border-color .15s}
+.record-item:hover{border-color:rgba(124,106,255,.4)}
+.record-date{font-size:10px;color:var(--text3);min-width:32px;text-align:center}
+.record-date .day{font-size:18px;font-weight:700;color:var(--text2);line-height:1}
+.record-info{flex:1}
+.record-pkgs{font-size:13px;font-weight:500}
+.record-pkgs span{color:var(--accent2);font-family:'DM Mono',monospace}
+.record-note{font-size:11px;color:var(--text3);margin-top:2px}
+.record-earn{font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--green);text-align:right}
+.btn-del{background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:4px;line-height:1;opacity:0;transition:opacity .15s}
+.record-item:hover .btn-del{opacity:1}
+.btn-del:hover{color:var(--red)}
+.empty{text-align:center;color:var(--text3);padding:30px 0;font-size:13px;line-height:2}
+.chart-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.chart-title{font-size:11px;color:var(--text2);margin-bottom:12px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.chart-container{position:relative;height:200px}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px}
+.stat-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.stat-val{font-size:22px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent2)}
+.stat-lbl{font-size:11px;color:var(--text3);margin-top:3px}
+.settings-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.settings-title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px}
+.settings-desc{font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.7}
+.settings-desc a{color:var(--accent2)}
+.settings-field{display:flex;flex-direction:column;gap:5px;margin-bottom:10px}
+.settings-field label{font-size:11px;color:var(--text3)}
+.settings-field input{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 11px;color:var(--text);font-size:12px;font-family:'DM Mono',monospace;outline:none}
+.settings-field input:focus{border-color:var(--accent)}
+.settings-field input::placeholder{color:var(--text3);font-family:'Noto Sans TC',sans-serif;font-size:11px}
+.btn-save{width:100%;background:var(--accent3);border:1px solid var(--accent);border-radius:10px;padding:10px;color:#fff;font-size:13px;font-weight:500;font-family:'Noto Sans TC',sans-serif;cursor:pointer;margin-top:4px}
+.btn-save:hover{opacity:.9}
+.status-box{border-radius:10px;padding:10px 13px;font-size:12px;margin-bottom:12px;line-height:1.6;border:1px solid}
+.status-box.ok{background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.3);color:var(--green)}
+.status-box.warn{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.3);color:var(--amber)}
+.step-list{display:flex;flex-direction:column;gap:8px}
+.step{display:flex;gap:10px;align-items:flex-start;font-size:12px;color:var(--text2);line-height:1.6}
+.step-num{background:var(--accent3);color:#fff;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;margin-top:2px}
+.btn-export{display:flex;align-items:center;justify-content:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:9px 16px;color:var(--text2);font-size:12px;font-family:'Noto Sans TC',sans-serif;cursor:pointer;transition:background .15s}
+.btn-export:hover{background:var(--card2)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(10px);background:var(--card2);border:1px solid var(--border);border-radius:20px;padding:8px 18px;font-size:12px;color:var(--text);opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:100}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
+
+/* ══════════════════════════════
+   MOBILE LAYOUT (≤768px)
+══════════════════════════════ */
+@media (max-width: 768px) {
+  html,body{overflow:hidden}
+  #app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+  /* hide desktop elements */
+  .topbar .month-nav,
+  .topbar .app-title,
+  .summarybar,
+  .main-layout,
+  .topbar-right { display:none !important }
+
+  /* mobile header */
+  .topbar { padding: 0 16px; justify-content: space-between; height: 52px; }
+  .mobile-title { display:flex !important; align-items:center; gap:8px; font-size:17px; font-weight:700; }
+  .mobile-title span { color:var(--accent2) }
+  .mobile-month-nav { display:flex !important; align-items:center; gap:8px; }
+  .mobile-month-nav button { background:var(--card);border:1px solid var(--border);color:var(--text);width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center }
+  .mobile-month-nav .month-label { font-size:13px;color:var(--text2);min-width:76px;text-align:center }
+
+  /* mobile content area */
+  .mobile-content { display:flex !important; flex-direction:column; flex:1; overflow:hidden; }
+  .mobile-page { display:none; flex-direction:column; height:100%; overflow-y:auto; padding:14px 16px 90px; -webkit-overflow-scrolling:touch; }
+  .mobile-page.active { display:flex; }
+  .mobile-page::-webkit-scrollbar{display:none}
+
+  /* home page */
+  .mobile-home-input { background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px }
+  .mobile-pkg-row { display:flex;align-items:center;gap:10px;margin-bottom:12px }
+  .mobile-pkg-label { font-size:13px;color:var(--text2);flex:1 }
+  .mobile-pkg-display { font-size:36px;font-weight:700;font-family:'DM Mono',monospace;color:var(--accent2);min-width:80px;text-align:right }
+  .mobile-numpad { display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px }
+  .numpad-btn { background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:14px;font-size:20px;font-weight:600;color:var(--text);cursor:pointer;text-align:center;font-family:'DM Mono',monospace;transition:background .1s;-webkit-tap-highlight-color:transparent }
+  .numpad-btn:active { background:var(--accent3) }
+  .numpad-btn.del { font-size:18px }
+  .numpad-btn.zero { grid-column:span 2 }
+  .mobile-extras { display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px }
+  .mobile-field { display:flex;flex-direction:column;gap:4px }
+  .mobile-field label { font-size:11px;color:var(--text3) }
+  .mobile-field input { background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-size:13px;font-family:'Noto Sans TC',sans-serif;outline:none;width:100%;-webkit-appearance:none }
+  .mobile-field input:focus{border-color:var(--accent)}
+  .btn-submit { width:100%;background:var(--accent);border:none;border-radius:12px;padding:15px;color:#fff;font-size:17px;font-weight:700;font-family:'Noto Sans TC',sans-serif;cursor:pointer }
+  .btn-submit:active{opacity:.8}
+  .btn-submit:disabled{opacity:.5}
+
+  /* mobile summary cards */
+  .mobile-summary { display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px }
+  .mobile-sum-card { background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 14px }
+  .mobile-sum-card.accent { background:linear-gradient(135deg,var(--accent3),var(--accent));border-color:transparent }
+  .mobile-sum-label { font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px }
+  .mobile-sum-card.accent .mobile-sum-label { color:rgba(255,255,255,.6) }
+  .mobile-sum-value { font-size:20px;font-weight:700;font-family:'DM Mono',monospace }
+  .mobile-sum-card.accent .mobile-sum-value { color:#fff }
+  .mobile-sum-sub { font-size:10px;color:var(--text3);margin-top:2px }
+  .mobile-sum-card.accent .mobile-sum-sub { color:rgba(255,255,255,.5) }
+
+  /* bottom nav */
+  .mobile-nav { display:flex !important; position:fixed;bottom:0;left:0;right:0;background:var(--bg2);border-top:1px solid var(--border);padding-bottom:env(safe-area-inset-bottom);z-index:50 }
+  .mobile-nav-item { flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 0;cursor:pointer;color:var(--text3);font-size:10px;-webkit-tap-highlight-color:transparent }
+  .mobile-nav-item.active { color:var(--accent2) }
+  .mobile-nav-icon { font-size:20px;line-height:1 }
+}
+
+/* hide mobile elements on desktop */
+.mobile-title, .mobile-month-nav, .mobile-content, .mobile-nav { display:none }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- MOBILE UI -->
+  <div class="mobile-title"><span>送貨</span>記錄</div>
+  <div class="mobile-month-nav">
+    <button onclick="changeMonth(-1)">‹</button>
+    <div class="month-label" id="mMonthLabel"></div>
+    <button onclick="changeMonth(1)">›</button>
+  </div>
+  <div class="mobile-content">
+    <!-- Home: 今日輸入 + 本月統計 -->
+    <div class="mobile-page active" id="mpage-home">
+      <div class="mobile-home-input">
+        <div class="mobile-pkg-row">
+          <div class="mobile-pkg-label">今日件數<br><span style="font-size:11px;color:var(--text3)" id="mDateLabel"></span></div>
+          <div class="mobile-pkg-display" id="mPkgDisplay">0</div>
+        </div>
+        <div class="mobile-numpad">
+          <div class="numpad-btn" onclick="numpad('1')">1</div>
+          <div class="numpad-btn" onclick="numpad('2')">2</div>
+          <div class="numpad-btn" onclick="numpad('3')">3</div>
+          <div class="numpad-btn" onclick="numpad('4')">4</div>
+          <div class="numpad-btn" onclick="numpad('5')">5</div>
+          <div class="numpad-btn" onclick="numpad('6')">6</div>
+          <div class="numpad-btn" onclick="numpad('7')">7</div>
+          <div class="numpad-btn" onclick="numpad('8')">8</div>
+          <div class="numpad-btn" onclick="numpad('9')">9</div>
+          <div class="numpad-btn del" onclick="numpad('del')">⌫</div>
+          <div class="numpad-btn zero" onclick="numpad('0')">0</div>
+        </div>
+        <div class="mobile-extras">
+          <div class="mobile-field">
+            <label>當日單價(AU$) — 選填</label>
+            <input type="number" id="mDayPrice" step="0.01" min="0.01" placeholder="留空用預設" />
+          </div>
+          <div class="mobile-field">
+            <label>備註 — 選填</label>
+            <input type="text" id="mNote" placeholder="例：加班..." />
+          </div>
+        </div>
+        <button class="btn-submit" id="mAddBtn" onclick="mAddRecord()">儲存今日記錄</button>
+      </div>
+
+      <div class="mobile-summary">
+        <div class="mobile-sum-card">
+          <div class="mobile-sum-label">本月件數</div>
+          <div class="mobile-sum-value" id="mSumPkgs">0</div>
+          <div class="mobile-sum-sub" id="mSumDays">0 個工作天</div>
+        </div>
+        <div class="mobile-sum-card accent">
+          <div class="mobile-sum-label">本月薪資</div>
+          <div class="mobile-sum-value" id="mSumSalary">AU$0</div>
+          <div class="mobile-sum-sub" id="mSumAvg">平均 AU$0／天</div>
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">最近記錄</div>
+      <div id="mRecentList"></div>
+    </div>
+
+    <!-- 記錄頁 -->
+    <div class="mobile-page" id="mpage-list">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px">本月記錄</div>
+        <button class="btn-export" onclick="exportCSV()" style="font-size:11px;padding:6px 12px">⬇ 匯出</button>
+      </div>
+      <div id="mListContent"></div>
+    </div>
+
+    <!-- 薪資週期 -->
+    <div class="mobile-page" id="mpage-pay">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">薪資週期</div>
+      <div class="mobile-extras" style="margin-bottom:10px">
+        <div class="mobile-field"><label>開始日期</label><input type="date" id="mPayStart" /></div>
+        <div class="mobile-field"><label>結束日期</label><input type="date" id="mPayEnd" /></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <button class="btn-submit" style="flex:1;padding:10px;font-size:13px" onclick="mCalcPay()">計算</button>
+        <button class="btn-export" id="mBtnCur" onclick="mSetPay('current')" style="flex:1;font-size:11px">本期</button>
+        <button class="btn-export" id="mBtnNext" onclick="mSetPay('next')" style="flex:1;font-size:11px">下期</button>
+        <button class="btn-export" id="mBtnPrev" onclick="mSetPay('prev')" style="flex:1;font-size:11px">上期</button>
+      </div>
+      <div id="mPayResult"></div>
+    </div>
+
+    <!-- 設定 -->
+    <div class="mobile-page" id="mpage-settings">
+      <div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">設定</div>
+      <div class="mobile-home-input" style="margin-bottom:12px">
+        <div class="mobile-field" style="margin-bottom:10px">
+          <label>預設單價 (AU$)</label>
+          <input type="number" id="mPriceInput" step="0.01" min="0.01" />
+        </div>
+        <button class="btn-submit" style="padding:11px;font-size:14px" onclick="mSavePrice()">儲存單價</button>
+      </div>
+      <div class="mobile-sum-card" style="background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.3);margin-bottom:12px">
+        <div style="font-size:13px;color:var(--green)">✅ 已連線 Google 試算表</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">新增記錄會自動同步</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mobile-nav">
+    <div class="mobile-nav-item active" id="mnav-home" onclick="switchMobile('home')">
+      <div class="mobile-nav-icon">📦</div><div>今日</div>
+    </div>
+    <div class="mobile-nav-item" id="mnav-list" onclick="switchMobile('list')">
+      <div class="mobile-nav-icon">📋</div><div>記錄</div>
+    </div>
+    <div class="mobile-nav-item" id="mnav-pay" onclick="switchMobile('pay')">
+      <div class="mobile-nav-icon">💰</div><div>薪資</div>
+    </div>
+    <div class="mobile-nav-item" id="mnav-settings" onclick="switchMobile('settings')">
+      <div class="mobile-nav-icon">⚙️</div><div>設定</div>
+    </div>
+  </div>
+
+  <div class="topbar">
+    <div class="app-title">送貨<span>記錄</span></div>
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)">‹</button>
+      <div class="month-label" id="monthLabel"></div>
+      <button onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="topbar-right">
+      <button class="nav-btn active" id="navList" onclick="switchRight('list')">📋 本月記錄</button>
+      <button class="nav-btn" id="navPay" onclick="switchRight('pay')">💰 薪資週期</button>
+      <button class="nav-btn" id="navChart" onclick="switchRight('chart')">📊 圖表</button>
+      <button class="nav-btn" id="navSettings" onclick="switchRight('settings')">⚙️ 設定</button>
+      <div class="sync-badge" id="syncBadge" onclick="switchRight('settings')">
+        <div class="sync-dot"></div><span id="syncLabel">未連線</span>
+      </div>
+    </div>
+  </div>
+  <div class="summarybar">
+    <div class="sum-card">
+      <div><div class="sum-label">本月件數</div><div class="sum-value" id="sumPkgs">0</div><div class="sum-sub" id="sumDays">0 個工作天</div></div>
+    </div>
+    <div class="sum-card accent">
+      <div><div class="sum-label">本月薪資</div><div class="sum-value" id="sumSalary">AU$0</div><div class="sum-sub" id="sumAvg">平均 AU$0／天</div></div>
+    </div>
+  </div>
+  <div class="main-layout">
+    <!-- LEFT -->
+    <div class="left-panel">
+      <div class="panel-section">
+        <div class="price-row">
+          <label>預設單價 (AU$)</label>
+          <input type="number" id="priceInput" value="1" min="0.01" step="0.01" onchange="savePrice()" />
+        </div>
+        <div class="form-title">新增送貨記錄</div>
+        <div class="field-row">
+          <div class="field-group"><label>日期</label><input type="date" id="dateInput" /></div>
+          <div class="field-group"><label>送貨件數</label><input type="number" id="pkgInput" min="0" placeholder="0" /></div>
+        </div>
+        <div class="field-row">
+          <div class="field-group"><label>當日單價 (AU$) — 選填</label><input type="number" id="dayPriceInput" min="0.01" step="0.01" placeholder="留空用預設" /></div>
+          <div class="field-group"><label>備註 — 選填</label><input type="text" id="noteInput" placeholder="例：加班..." /></div>
+        </div>
+        <button class="btn-add" id="addBtn" onclick="addRecord()">新增記錄</button>
+      </div>
+      <div class="panel-section">
+        <div class="section-label">今日</div>
+        <div id="todayPreview"></div>
+      </div>
+    </div>
+    <!-- RIGHT -->
+    <div class="right-panel">
+      <div class="right-view active" id="view-list">
+        <div class="right-scroll">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div class="form-title" style="margin-bottom:0">本月所有記錄</div>
+            <button class="btn-export" onclick="exportCSV()">⬇ 匯出 CSV</button>
+          </div>
+          <div id="listContent"></div>
+        </div>
+      </div>
+      <div class="right-view" id="view-pay">
+        <div class="right-scroll">
+          <div class="form-title">薪資週期統計</div>
+          <div class="field-row" style="margin-bottom:10px">
+            <div class="field-group"><label>開始日期</label><input type="date" id="payStart" /></div>
+            <div class="field-group"><label>結束日期（發薪日）</label><input type="date" id="payEnd" /></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:16px">
+            <button class="btn-add" style="padding:9px;font-size:13px" onclick="calcPayPeriod()">計算薪資</button>
+            <button class="btn-export" id="btnCurrentPeriod" onclick="setPayPeriod('current')">本期</button>
+            <button class="btn-export" id="btnNextPeriod" onclick="setPayPeriod('next')">下期</button>
+            <button class="btn-export" id="btnPrevPeriod" onclick="setPayPeriod('prev')">上期</button>
+          </div>
+          <div id="payResult"></div>
+        </div>
+      </div>
+      <div class="right-view" id="view-chart">
+        <div class="right-scroll">
+          <div class="stats-grid">
+            <div class="stat-box"><div class="stat-val" id="statMax">0</div><div class="stat-lbl">最高單日件數</div></div>
+            <div class="stat-box"><div class="stat-val" id="statAvgDay">0</div><div class="stat-lbl">日均件數</div></div>
+            <div class="stat-box"><div class="stat-val" id="statDays">0</div><div class="stat-lbl">工作天數</div></div>
+          </div>
+          <div class="chart-wrap"><div class="chart-title">每日送貨件數</div><div class="chart-container"><canvas id="barChart"></canvas></div></div>
+          <div class="chart-wrap"><div class="chart-title">累計薪資趨勢</div><div class="chart-container"><canvas id="lineChart"></canvas></div></div>
+        </div>
+      </div>
+      <div class="right-view" id="view-settings">
+        <div class="right-scroll">
+          <div id="syncStatus"></div>
+          <div class="settings-card">
+            <div class="settings-title">🔗 Google 試算表同步</div>
+            <div class="settings-desc">填入以下資訊後，送貨記錄會即時同步到你的 Google 試算表。</div>
+            <div class="settings-field"><label>試算表 ID</label><input type="text" id="sheetId" placeholder="從試算表網址複製，例：1BxiM..." /></div>
+            <div class="settings-field"><label>API 金鑰</label><input type="text" id="apiKey" placeholder="Google Cloud 取得的 API Key" /></div>
+            <div class="settings-field"><label>工作表名稱（預設：Sheet1）</label><input type="text" id="sheetName" placeholder="Sheet1" /></div>
+            <button class="btn-save" onclick="saveSettings()">儲存並測試連線</button>
+          </div>
+          <div class="settings-card">
+            <div class="settings-title">📋 設定步驟</div>
+            <div class="step-list">
+              <div class="step"><div class="step-num">1</div><div>前往 <a href="https://sheets.new" style="color:var(--accent2)">sheets.new</a> 建立新試算表，共用設為「知道連結的人可以編輯」</div></div>
+              <div class="step"><div class="step-num">2</div><div>從網址複製試算表 ID：<code style="font-size:11px;color:var(--accent2)">spreadsheets/d/<b>[ID]</b>/edit</code></div></div>
+              <div class="step"><div class="step-num">3</div><div>前往 <a href="https://console.cloud.google.com" style="color:var(--accent2)">Google Cloud Console</a> → 啟用 Sheets API → 建立 API 金鑰</div></div>
+              <div class="step"><div class="step-num">4</div><div>填入上方欄位，按「儲存並測試連線」</div></div>
+            </div>
+          </div>
+          <div class="settings-card">
+            <div class="settings-title" style="color:var(--amber)">⚠️ 注意</div>
+            <div class="settings-desc" style="margin-bottom:0">API 金鑰只存在瀏覽器本機，不會傳送到其他地方。試算表須設為可編輯才能寫入。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+
+let barChartInst = null, lineChartInst = null;
+let currentYear, currentMonth;
+const now = new Date();
+currentYear = now.getFullYear();
+currentMonth = now.getMonth();
+
+// ── Storage helpers ──
+function getKey() { return `records_${currentYear}_${currentMonth}`; }
+function loadRecords() { try { return JSON.parse(localStorage.getItem(getKey()) || '[]'); } catch { return []; } }
+function saveRecords(r) { localStorage.setItem(getKey(), JSON.stringify(r)); }
+function getPrice() { return parseFloat(localStorage.getItem('delivery_price') || '1'); }
+function savePrice() {
+  const v = parseFloat(document.getElementById('priceInput').value) || 1;
+  localStorage.setItem('delivery_price', v);
+  updateAll();
+}
+function getSettings() {
+  return {
+    sheetId: localStorage.getItem('gs_sheet_id') || '',
+    apiKey: localStorage.getItem('gs_api_key') || '',
+    sheetName: localStorage.getItem('gs_sheet_name') || 'Sheet1'
+  };
+}
+function saveSettingsStore(s) {
+  localStorage.setItem('gs_sheet_id', s.sheetId);
+  localStorage.setItem('gs_api_key', s.apiKey);
+  localStorage.setItem('gs_sheet_name', s.sheetName);
+}
+
+// ── Google Sheets API ──
+async function sheetsRequest(method, path, body) {
+  const { apiKey } = getSettings();
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${path}?key=${apiKey}`;
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(url, opts);
+  if (!res.ok) { const e = await res.json(); throw new Error(e.error?.message || res.statusText); }
+  return res.json();
+}
+
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby8mY_hwHWzEtT1OUgIwpOkh80bIaadEpFHrrk-9QGPRGfR_Ckff4TdPG17y908_UHM/exec';
+
+async function syncToSheets(records) {
+  setSyncState('syncing', '同步中...');
+  try {
+    const sorted = [...records].sort((a,b) => a.date.localeCompare(b.date));
+    const rows = [['日期','星期','件數','當日單價(AU$)','當日薪資(AU$)','備註']];
+    sorted.forEach(r => {
+      const dt = new Date(r.date + 'T00:00:00');
+      const week = ['日','一','二','三','四','五','六'][dt.getDay()];
+      rows.push([r.date, '(' + week + ')', r.pkgs, recPrice(r).toFixed(2), (r.pkgs * recPrice(r)).toFixed(2), r.note || '']);
+    });
+    const total = sorted.reduce((s,r) => s+r.pkgs, 0);
+    const totalSalary = sorted.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
+    rows.push(['', '總計', total, '', totalSalary.toFixed(2), '']);
+    await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ rows }) });
+    setSyncState('synced', '已同步');
+    return true;
+  } catch(e) {
+    setSyncState('error', '同步失敗');
+    console.error(e);
+    return false;
+  }
+}
+
+async function testConnection() {
+  setSyncState('syncing', '測試中...');
+  try {
+    await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ rows: [['連線測試']] }) });
+    setSyncState('synced', '已連線');
+    renderSyncStatus(true);
+    return true;
+  } catch(e) {
+    setSyncState('error', '連線失敗');
+    renderSyncStatus(false, e.message);
+    return false;
+  }
+}
+
+function setSyncState(state, label) {
+  const badge = document.getElementById('syncBadge');
+  const lbl = document.getElementById('syncLabel');
+  badge.className = 'sync-badge ' + state;
+  lbl.textContent = label;
+}
+
+function renderSyncStatus(ok, errMsg) {
+  const el = document.getElementById('syncStatus');
+  if (ok) {
+    el.innerHTML = '<div class="status-box ok">✅ 已成功連線到 Google 試算表！<br>每次新增或刪除記錄都會自動同步。</div>';
+  } else {
+    el.innerHTML = `<div class="status-box warn">❌ 連線失敗：${errMsg || '請檢查試算表 ID、API 金鑰是否正確，以及試算表是否已設為可編輯。'}</div>`;
+  }
+}
+
+// ── UI helpers ──
+function today() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function formatDate(d) {
+  const dt = new Date(d + 'T00:00:00');
+  return `${dt.getMonth()+1}/${dt.getDate()}`;
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+function changeMonth(delta) {
+  currentMonth += delta;
+  if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+  if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+  updateAll();
+}
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((el,i) => {
+    el.classList.toggle('active', ['record','list','pay','settings'][i] === tab);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'chart') renderCharts();
+  if (tab === 'list') renderList();
+  if (tab === 'pay') initPayPage();
+  if (tab === 'settings') loadSettingsUI();
+}
+
+// 錨點：本期開始 2026-04-19，每期固定 28 天
+function getPayPeriods() {
+  const anchor = new Date('2026-04-19T00:00:00');
+  const todayD = new Date(today() + 'T00:00:00');
+  const diffDays = Math.floor((todayD - anchor) / 86400000);
+  const idx = Math.floor(diffDays / 28);
+  const toStr = d => d.toISOString().slice(0,10);
+  const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate()+n); return r; };
+  const curStart = addDays(anchor, idx * 28);
+  return {
+    prev:    { start: toStr(addDays(curStart, -28)), end: toStr(addDays(curStart, -1)) },
+    current: { start: toStr(curStart),               end: toStr(addDays(curStart, 27)) },
+    next:    { start: toStr(addDays(curStart, 28)),  end: toStr(addDays(curStart, 55)) }
+  };
+}
+
+function fmtPeriod(p) {
+  const s = new Date(p.start+'T00:00:00'), e = new Date(p.end+'T00:00:00');
+  return `${s.getMonth()+1}/${s.getDate()} ～ ${e.getMonth()+1}/${e.getDate()}`;
+}
+
+function initPayPage() {
+  const periods = getPayPeriods();
+  document.getElementById('btnPrevPeriod').textContent    = '上期 ' + fmtPeriod(periods.prev);
+  document.getElementById('btnCurrentPeriod').textContent = '本期 ' + fmtPeriod(periods.current);
+  document.getElementById('btnNextPeriod').textContent    = '下期 ' + fmtPeriod(periods.next);
+  if (!document.getElementById('payStart').value) {
+    document.getElementById('payStart').value = periods.current.start;
+    document.getElementById('payEnd').value   = periods.current.end;
+    calcPayPeriod();
+  }
+}
+
+function setPayPeriod(type) {
+  const p = getPayPeriods()[type];
+  document.getElementById('payStart').value = p.start;
+  document.getElementById('payEnd').value   = p.end;
+  calcPayPeriod();
+}
+
+function calcPayPeriod() {
+  const start = document.getElementById('payStart').value;
+  const end = document.getElementById('payEnd').value;
+  if (!start || !end || start > end) { showToast('請選擇有效的開始和結束日期'); return; }
+
+  // Collect all records across all months in range
+  const startDate = new Date(start + 'T00:00:00');
+  const endDate = new Date(end + 'T00:00:00');
+  const price = getPrice();
+
+  // Find all months in range
+  let allRecords = [];
+  let cur = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+  const endMonth = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+  while (cur <= endMonth) {
+    const key = `records_${cur.getFullYear()}_${cur.getMonth()}`;
+    try {
+      const recs = JSON.parse(localStorage.getItem(key) || '[]');
+      allRecords = allRecords.concat(recs);
+    } catch {}
+    cur.setMonth(cur.getMonth() + 1);
+  }
+
+  // Filter to date range (inclusive)
+  const filtered = allRecords.filter(r => r.date >= start && r.date <= end)
+    .sort((a,b) => a.date.localeCompare(b.date));
+
+  const totalPkgs = filtered.reduce((s,r) => s+r.pkgs, 0);
+  const totalSalary = filtered.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
+  const workDays = filtered.length;
+
+  const el = document.getElementById('payResult');
+  if (!filtered.length) {
+    el.innerHTML = '<div class="empty">這段期間沒有記錄<br><span style="font-size:12px">先去「新增」頁面輸入每日件數</span></div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+      <div class="sum-card"><div class="sum-label">總件數</div><div class="sum-value">${totalPkgs.toLocaleString()}</div><div class="sum-sub">${workDays} 個工作天</div></div>
+      <div class="sum-card accent"><div class="sum-label">本期薪資</div><div class="sum-value" style="font-size:18px">AU$${totalSalary.toFixed(2)}</div><div class="sum-sub">AU$${price}/件</div></div>
+    </div>
+    <div class="section-label">明細 ${start} ～ ${end}</div>
+    ${filtered.map(r => {
+      const dt = new Date(r.date + 'T00:00:00');
+      const week = ['日','一','二','三','四','五','六'][dt.getDay()];
+      return `<div class="record-item">
+        <div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div>
+        <div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div>
+        <div style="text-align:right"><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div>${r.dayPrice!=null?`<div style="font-size:10px;color:var(--text3)">AU$${recPrice(r)}/件</div>`:''}</div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+// ── Core actions ──
+function recPrice(r) { return (r.dayPrice != null && !isNaN(r.dayPrice)) ? r.dayPrice : getPrice(); }
+async function addRecord() {
+  const date = document.getElementById('dateInput').value;
+  const pkgs = parseInt(document.getElementById('pkgInput').value);
+  const note = document.getElementById('noteInput').value.trim();
+  const dayPriceRaw = document.getElementById('dayPriceInput').value;
+  const dayPrice = dayPriceRaw ? parseFloat(dayPriceRaw) : null;
+  if (!date || isNaN(pkgs) || pkgs < 0) { showToast('請填入有效日期與件數'); return; }
+  const d = new Date(date + 'T00:00:00');
+  if (d.getFullYear() !== currentYear || d.getMonth() !== currentMonth) {
+    showToast('日期不在目前月份，請切換月份'); return;
+  }
+  const btn = document.getElementById('addBtn');
+  btn.disabled = true; btn.textContent = '儲存中...';
+  let records = loadRecords();
+  const idx = records.findIndex(r => r.date === date);
+  const isUpdate = idx >= 0;
+  if (isUpdate) records[idx] = { date, pkgs, note, dayPrice };
+  else records.push({ date, pkgs, note, dayPrice });
+  saveRecords(records);
+  document.getElementById('pkgInput').value = '';
+  document.getElementById('noteInput').value = '';
+  document.getElementById('dayPriceInput').value = '';
+  updateAll();
+  const synced = await syncToSheets(records);
+  showToast(isUpdate ? '已更新 ' + formatDate(date) + (synced ? ' ✓ 已同步' : '') : '已新增 ' + formatDate(date) + (synced ? ' ✓ 已同步' : ' 🎉'));
+  btn.disabled = false; btn.textContent = '新增記錄';
+}
+
+async function deleteRecord(date) {
+  if (!confirm('確定刪除 ' + formatDate(date) + ' 的記錄？')) return;
+  let records = loadRecords().filter(r => r.date !== date);
+  saveRecords(records);
+  renderList();
+  updateAll();
+  const synced = await syncToSheets(records);
+  showToast('已刪除' + (synced ? ' ✓ 已同步' : ''));
+}
+
+function saveSettings() {
+  const s = {
+    sheetId: document.getElementById('sheetId').value.trim(),
+    apiKey: document.getElementById('apiKey').value.trim(),
+    sheetName: document.getElementById('sheetName').value.trim() || 'Sheet1'
+  };
+  saveSettingsStore(s);
+  showToast('設定已儲存，測試連線中...');
+  testConnection();
+}
+
+function loadSettingsUI() {
+  const s = getSettings();
+  document.getElementById('sheetId').value = s.sheetId;
+  document.getElementById('apiKey').value = s.apiKey;
+  document.getElementById('sheetName').value = s.sheetName;
+  const syncEl = document.getElementById('syncStatus');
+  if (!s.sheetId || !s.apiKey) {
+    syncEl.innerHTML = '<div class="status-box warn">尚未設定 Google 試算表，請填入下方資訊。</div>';
+  } else {
+    syncEl.innerHTML = '';
+  }
+}
+
+// ── Render ──
+function updateSummary() {
+  const records = loadRecords();
+  const price = getPrice();
+  const total = records.reduce((s,r) => s+r.pkgs, 0);
+  const salary = records.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
+  const days = records.length;
+  document.getElementById('sumPkgs').textContent = total.toLocaleString();
+  document.getElementById('sumDays').textContent = days + ' 個工作天';
+  document.getElementById('sumSalary').textContent = 'AU$' + salary.toFixed(2);
+  document.getElementById('sumAvg').textContent = '平均 AU$' + (days ? (salary/days).toFixed(2) : '0') + '／天';
+}
+function updateMonthLabel() {
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  document.getElementById('monthLabel').textContent = currentYear + '年 ' + months[currentMonth];
+}
+function renderTodayPreview() {
+  const records = loadRecords();
+  const t = today();
+  const rec = records.find(r => r.date === t);
+  const el = document.getElementById('todayPreview');
+  if (rec) {
+    el.innerHTML = `<div class="record-item">
+      <div class="record-date"><div class="day">${new Date(t+'T00:00:00').getDate()}</div><div>${new Date(t+'T00:00:00').toLocaleDateString('zh-TW',{weekday:'short'})}</div></div>
+      <div class="record-info"><div class="record-pkgs">今日 <span>${rec.pkgs}</span> 件</div>${rec.note?`<div class="record-note">${rec.note}</div>`:''}</div>
+      <div class="record-earn">AU$${(rec.pkgs*recPrice(rec)).toFixed(2)}</div>
+    </div>`;
+  } else {
+    el.innerHTML = '<div class="empty">今日尚未記錄<br><span style="font-size:12px">在上方填入今日送貨件數</span></div>';
+  }
+}
+function renderList() {
+  const records = loadRecords().sort((a,b) => b.date.localeCompare(a.date));
+  const price = getPrice();
+  const el = document.getElementById('listContent');
+  if (!records.length) { el.innerHTML = '<div class="empty">本月尚無記錄</div>'; return; }
+  el.innerHTML = records.map(r => {
+    const dt = new Date(r.date + 'T00:00:00');
+    return `<div class="record-item">
+      <div class="record-date"><div class="day">${dt.getDate()}</div><div>${dt.toLocaleDateString('zh-TW',{weekday:'short'})}</div></div>
+      <div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div>
+      <div style="text-align:right"><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div>${r.dayPrice!=null?`<div style="font-size:10px;color:var(--text3)">AU$${recPrice(r)}/件</div>`:''}</div>
+      <button class="btn-del" onclick="deleteRecord('${r.date}')">×</button>
+    </div>`;
+  }).join('');
+}
+function renderCharts() {
+  const records = loadRecords().sort((a,b) => a.date.localeCompare(b.date));
+  const price = getPrice();
+  const max = records.length ? Math.max(...records.map(r=>r.pkgs)) : 0;
+  const avgDay = records.length ? Math.round(records.reduce((s,r)=>s+r.pkgs,0)/records.length) : 0;
+  document.getElementById('statMax').textContent = max;
+  document.getElementById('statAvgDay').textContent = avgDay;
+  document.getElementById('statDays').textContent = records.length;
+  const labels = records.map(r => formatDate(r.date));
+  const pkgsData = records.map(r => r.pkgs);
+  let cum = 0;
+  const cumData = records.map(r => { cum += r.pkgs * recPrice(r); return parseFloat(cum.toFixed(2)); });
+  const chartDef = {
+    responsive:true, maintainAspectRatio:false,
+    plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e1e35',titleColor:'#a09bb8',bodyColor:'#f0eeff',borderColor:'rgba(124,106,255,0.3)',borderWidth:1}},
+    scales:{x:{ticks:{color:'#6b6688',font:{size:11},maxTicksLimit:8},grid:{color:'rgba(255,255,255,0.04)'}},y:{ticks:{color:'#6b6688',font:{size:11}},grid:{color:'rgba(255,255,255,0.06)'}}}
+  };
+  if (barChartInst) barChartInst.destroy();
+  barChartInst = new Chart(document.getElementById('barChart'), {
+    type:'bar', data:{labels,datasets:[{data:pkgsData,backgroundColor:'rgba(124,106,255,0.7)',borderRadius:4}]}, options:chartDef
+  });
+  if (lineChartInst) lineChartInst.destroy();
+  lineChartInst = new Chart(document.getElementById('lineChart'), {
+    type:'line',
+    data:{labels,datasets:[{data:cumData,borderColor:'#4ade80',backgroundColor:'rgba(74,222,128,0.08)',fill:true,tension:0.4,pointRadius:3,pointBackgroundColor:'#4ade80'}]},
+    options:{...chartDef,scales:{...chartDef.scales,y:{...chartDef.scales.y,ticks:{...chartDef.scales.y.ticks,callback:v=>'AU$'+v.toFixed(0)}}}}
+  });
+}
+function exportCSV() {
+  const records = loadRecords().sort((a,b) => a.date.localeCompare(b.date));
+  const price = getPrice();
+  if (!records.length) { showToast('本月尚無記錄'); return; }
+  let csv = '\uFEFF日期,星期,件數,當日薪資(AU$),備註\n';
+  records.forEach(r => {
+    const dt = new Date(r.date + 'T00:00:00');
+    const week = ['日','一','二','三','四','五','六'][dt.getDay()];
+    csv += `${r.date},${week},${r.pkgs},${recPrice(r).toFixed(2)},${(r.pkgs*recPrice(r)).toFixed(2)},"${r.note||''}"\n`;
+  });
+  const total = records.reduce((s,r)=>s+r.pkgs,0);
+  csv += `\n總計,,${total},${(total*price).toFixed(2)},`;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download = `送貨記錄_${currentYear}年${currentMonth+1}月.csv`;
+  a.click();
+  showToast('已匯出 CSV');
+}
+function updateAll() {
+  updateMonthLabel(); updateSummary(); renderTodayPreview();
+  document.getElementById('priceInput').value = getPrice();
+  setSyncState('synced', '已連線');
+}
+
+// Init
+document.getElementById('dateInput').value = today();
+updateAll();
+
+
+
+function switchRight(view) {
+  document.querySelectorAll('.right-view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  const map = {list:'navList', pay:'navPay', chart:'navChart', settings:'navSettings'};
+  if (map[view]) document.getElementById(map[view]).classList.add('active');
+  if (view === 'chart') renderCharts();
+  if (view === 'list') renderList();
+  if (view === 'pay') initPayPage();
+  if (view === 'settings') loadSettingsUI();
+}
+
+document.getElementById('dateInput').value = today();
+updateAll();
+renderList();
+
+// ══════════════════════════════
+// MOBILE JS
+// ══════════════════════════════
+let mPkgStr = '0';
+
+function isMobile() { return window.innerWidth <= 768; }
+
+function numpad(val) {
+  if (val === 'del') {
+    mPkgStr = mPkgStr.length > 1 ? mPkgStr.slice(0,-1) : '0';
+  } else {
+    if (mPkgStr === '0') mPkgStr = val;
+    else if (mPkgStr.length < 4) mPkgStr += val;
+  }
+  document.getElementById('mPkgDisplay').textContent = mPkgStr;
+}
+
+async function mAddRecord() {
+  const pkgs = parseInt(mPkgStr);
+  const date = today();
+  const note = document.getElementById('mNote').value.trim();
+  const dayPriceRaw = document.getElementById('mDayPrice').value;
+  const dayPrice = dayPriceRaw ? parseFloat(dayPriceRaw) : null;
+  if (!pkgs || pkgs <= 0) { showToast('請輸入件數'); return; }
+  const btn = document.getElementById('mAddBtn');
+  btn.disabled = true; btn.textContent = '儲存中...';
+  let records = loadRecords();
+  const idx = records.findIndex(r => r.date === date);
+  const isUpdate = idx >= 0;
+  if (isUpdate) records[idx] = { date, pkgs, note, dayPrice };
+  else records.push({ date, pkgs, note, dayPrice });
+  saveRecords(records);
+  mPkgStr = '0';
+  document.getElementById('mPkgDisplay').textContent = '0';
+  document.getElementById('mNote').value = '';
+  document.getElementById('mDayPrice').value = '';
+  mUpdateAll();
+  const synced = await syncToSheets(records);
+  showToast(isUpdate ? '已更新 ✓' : '已儲存' + (synced ? ' ✓ 同步' : ' 🎉'));
+  btn.disabled = false; btn.textContent = '儲存今日記錄';
+}
+
+function mCalcPay() {
+  // reuse calcPayPeriod but target mobile result div
+  const start = document.getElementById('mPayStart').value;
+  const end = document.getElementById('mPayEnd').value;
+  if (!start || !end || start > end) { showToast('請選擇有效日期'); return; }
+  const price = getPrice();
+  let allRecords = [];
+  let cur = new Date(new Date(start+'T00:00:00').getFullYear(), new Date(start+'T00:00:00').getMonth(), 1);
+  const endMonth = new Date(new Date(end+'T00:00:00').getFullYear(), new Date(end+'T00:00:00').getMonth(), 1);
+  while (cur <= endMonth) {
+    const key = 'records_' + cur.getFullYear() + '_' + cur.getMonth();
+    try { allRecords = allRecords.concat(JSON.parse(localStorage.getItem(key) || '[]')); } catch {}
+    cur.setMonth(cur.getMonth()+1);
+  }
+  const filtered = allRecords.filter(r => r.date >= start && r.date <= end).sort((a,b) => a.date.localeCompare(b.date));
+  const totalPkgs = filtered.reduce((s,r) => s+r.pkgs, 0);
+  const totalSalary = filtered.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
+  const el = document.getElementById('mPayResult');
+  if (!filtered.length) { el.innerHTML = '<div class="empty">這段期間沒有記錄</div>'; return; }
+  el.innerHTML = `
+    <div class="mobile-summary">
+      <div class="mobile-sum-card"><div class="mobile-sum-label">總件數</div><div class="mobile-sum-value">${totalPkgs}</div><div class="mobile-sum-sub">${filtered.length} 個工作天</div></div>
+      <div class="mobile-sum-card accent"><div class="mobile-sum-label">本期薪資</div><div class="mobile-sum-value" style="font-size:17px">AU$${totalSalary.toFixed(2)}</div><div class="mobile-sum-sub">${start.slice(5).replace('-','/')} ～ ${end.slice(5).replace('-','/')}</div></div>
+    </div>
+    ${filtered.map(r => {
+      const dt = new Date(r.date+'T00:00:00');
+      const week = ['日','一','二','三','四','五','六'][dt.getDay()];
+      return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div></div><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div></div>`;
+    }).join('')}`;
+}
+
+function mSetPay(type) {
+  const p = getPayPeriods()[type];
+  document.getElementById('mPayStart').value = p.start;
+  document.getElementById('mPayEnd').value = p.end;
+  mCalcPay();
+}
+
+function mSavePrice() {
+  const v = parseFloat(document.getElementById('mPriceInput').value) || 1;
+  localStorage.setItem('delivery_price', v);
+  document.getElementById('priceInput').value = v;
+  mUpdateAll();
+  showToast('單價已更新');
+}
+
+function switchMobile(page) {
+  document.querySelectorAll('.mobile-page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('mpage-' + page).classList.add('active');
+  document.getElementById('mnav-' + page).classList.add('active');
+  if (page === 'list') mRenderList();
+  if (page === 'pay') mInitPay();
+  if (page === 'settings') { document.getElementById('mPriceInput').value = getPrice(); }
+}
+
+function mInitPay() {
+  const periods = getPayPeriods();
+  document.getElementById('mBtnCur').textContent = '本期 ' + fmtPeriod(periods.current);
+  document.getElementById('mBtnNext').textContent = '下期 ' + fmtPeriod(periods.next);
+  document.getElementById('mBtnPrev').textContent = '上期 ' + fmtPeriod(periods.prev);
+  if (!document.getElementById('mPayStart').value) {
+    document.getElementById('mPayStart').value = periods.current.start;
+    document.getElementById('mPayEnd').value = periods.current.end;
+    mCalcPay();
+  }
+}
+
+function mRenderList() {
+  const records = loadRecords().sort((a,b) => b.date.localeCompare(a.date));
+  const el = document.getElementById('mListContent');
+  if (!records.length) { el.innerHTML = '<div class="empty">本月尚無記錄</div>'; return; }
+  el.innerHTML = records.map(r => {
+    const dt = new Date(r.date+'T00:00:00');
+    const week = ['日','一','二','三','四','五','六'][dt.getDay()];
+    return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div><button class="btn-del" onclick="mDeleteRecord('${r.date}')" style="opacity:1">×</button></div>`;
+  }).join('');
+}
+
+async function mDeleteRecord(date) {
+  if (!confirm('確定刪除？')) return;
+  let records = loadRecords().filter(r => r.date !== date);
+  saveRecords(records);
+  mRenderList();
+  mUpdateAll();
+  await syncToSheets(records);
+  showToast('已刪除');
+}
+
+function mUpdateAll() {
+  const records = loadRecords();
+  const total = records.reduce((s,r) => s+r.pkgs, 0);
+  const salary = records.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
+  const days = records.length;
+  document.getElementById('mSumPkgs').textContent = total.toLocaleString();
+  document.getElementById('mSumDays').textContent = days + ' 個工作天';
+  document.getElementById('mSumSalary').textContent = 'AU$' + salary.toFixed(2);
+  document.getElementById('mSumAvg').textContent = '平均 AU$' + (days ? (salary/days).toFixed(2) : '0') + '／天';
+  // month label
+  const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  if (document.getElementById('mMonthLabel')) document.getElementById('mMonthLabel').textContent = currentYear + '年 ' + months[currentMonth];
+  // date label
+  const t = new Date(today()+'T00:00:00');
+  if (document.getElementById('mDateLabel')) document.getElementById('mDateLabel').textContent = `${t.getMonth()+1}/${t.getDate()} (${['日','一','二','三','四','五','六'][t.getDay()]})`;
+  // recent list (today + last 3)
+  const recent = [...records].sort((a,b) => b.date.localeCompare(a.date)).slice(0,4);
+  const el = document.getElementById('mRecentList');
+  if (el) {
+    if (!recent.length) { el.innerHTML = '<div class="empty" style="padding:16px 0">尚無記錄</div>'; return; }
+    el.innerHTML = recent.map(r => {
+      const dt = new Date(r.date+'T00:00:00');
+      const week = ['日','一','二','三','四','五','六'][dt.getDay()];
+      return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div></div><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div></div>`;
+    }).join('');
+  }
+  // also load today's existing record into numpad if exists
+  const todayRec = records.find(r => r.date === today());
+  if (todayRec && mPkgStr === '0') {
+    mPkgStr = String(todayRec.pkgs);
+    if (document.getElementById('mPkgDisplay')) document.getElementById('mPkgDisplay').textContent = mPkgStr;
+  }
+  // sync desktop summary too
+  updateSummary();
+  updateMonthLabel();
+}
+
+// Override changeMonth to also update mobile
+const _origChangeMonth = changeMonth;
+// Patch updateAll to also call mUpdateAll
+const _origUpdateAll = updateAll;
+window.updateAll = function() { _origUpdateAll(); if(isMobile()) mUpdateAll(); };
+
+// Init mobile on load
+if (isMobile()) mUpdateAll();
+
+</script>
+</body>
+</html>
