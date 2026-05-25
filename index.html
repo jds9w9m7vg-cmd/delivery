@@ -408,7 +408,8 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
           </div>
           <div class="settings-card">
             <div class="settings-title" style="color:var(--amber)">⚠️ 注意</div>
-            <div class="settings-desc" style="margin-bottom:0">API 金鑰只存在瀏覽器本機，不會傳送到其他地方。試算表須設為可編輯才能寫入。</div>
+            <div class="settings-desc" style="margin-bottom:8px">API 金鑰只存在瀏覽器本機，不會傳送到其他地方。試算表須設為可編輯才能寫入。</div>
+            <button class="btn-save" style="background:var(--green);border-color:var(--green2)" onclick="loadFromSheets()">🔄 手動從試算表讀取資料</button>
           </div>
         </div>
       </div>
@@ -468,27 +469,47 @@ async function loadFromSheets() {
     if (json.status !== 'ok' || !json.data || json.data.length < 2) {
       setSyncState('synced', '已連線'); return;
     }
-    // Parse rows: skip header row, format: date, weekday, pkgs, unitPrice, salary, note
-    const rows = json.data.slice(1); // skip header
-    // Group by year-month
+    const rows = json.data.slice(1);
     const byMonth = {};
     rows.forEach(row => {
-      const date = row[0];
-      if (!date || typeof date !== 'string' || !date.match(/^\d{4}-\d{2}-\d{2}$/)) return;
-      if (row[2] === '' || row[2] === '總計') return;
-      const pkgs = parseInt(row[2]);
+      // Date may come as string "2026-05-01" or other format
+      let date = row[0];
+      if (!date) return;
+      // Convert to string if needed
+      date = String(date).trim();
+      // Handle both YYYY-MM-DD and other formats
+      if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Try to parse as date
+        const parsed = new Date(date);
+        if (isNaN(parsed.getTime())) return;
+        date = parsed.toISOString().slice(0,10);
+      }
+      const pkgsRaw = row[2];
+      if (pkgsRaw === '' || pkgsRaw === '總計' || pkgsRaw === null || pkgsRaw === undefined) return;
+      const pkgs = parseInt(pkgsRaw);
+      if (isNaN(pkgs) || pkgs <= 0) return;
       const dayPrice = parseFloat(row[3]) || null;
-      const note = row[5] || '';
-      if (isNaN(pkgs)) return;
+      const note = String(row[5] || '').trim();
       const d = new Date(date + 'T00:00:00');
       const key = 'records_' + d.getFullYear() + '_' + d.getMonth();
       if (!byMonth[key]) byMonth[key] = [];
-      // Check not duplicate
       if (!byMonth[key].find(r => r.date === date)) {
-        byMonth[key].push({ date, pkgs, note, dayPrice: dayPrice !== getPrice() ? dayPrice : null });
+        byMonth[key].push({ date, pkgs, note, dayPrice: (dayPrice && dayPrice !== getPrice()) ? dayPrice : null });
       }
     });
-    // Save each month
+    const monthCount = Object.keys(byMonth).length;
+    const totalRecs = Object.values(byMonth).reduce((s,r) => s+r.length, 0);
+    console.log('Loaded from sheets:', totalRecs, 'records across', monthCount, 'months');
+    if (totalRecs === 0) {
+      setSyncState('synced', '已連線');
+      showToast('試算表無資料');
+      return;
+    }
+    // Clear all old local records first, then save fresh from sheets
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('records_')) localStorage.removeItem(key);
+    }
     Object.entries(byMonth).forEach(([key, records]) => {
       localStorage.setItem(key, JSON.stringify(records));
     });
@@ -496,26 +517,44 @@ async function loadFromSheets() {
     updateAll();
     if (typeof mUpdateAll === 'function') mUpdateAll();
     renderList();
-    showToast('已從試算表載入最新資料 ✓');
+    showToast('已載入 ' + totalRecs + ' 筆記錄 ✓');
   } catch(e) {
     setSyncState('error', '讀取失敗');
     console.error(e);
   }
 }
 
+async function getAllLocalRecords() {
+  // Collect all records from all months in localStorage
+  const all = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key.startsWith('records_')) continue;
+    try {
+      const recs = JSON.parse(localStorage.getItem(key) || '[]');
+      all.push(...recs);
+    } catch {}
+  }
+  return all.sort((a,b) => a.date.localeCompare(b.date));
+}
+
 async function syncToSheets(records) {
   setSyncState('syncing', '同步中...');
   try {
-    const sorted = [...records].sort((a,b) => a.date.localeCompare(b.date));
+    // Get all local records (all months), merge current month update
+    const allRecords = await getAllLocalRecords();
+    // Replace current month records with the passed-in records
+    const year = currentYear, month = currentMonth;
+    const prefix = `${year}-${String(month+1).padStart(2,'0')}`;
+    const otherMonths = allRecords.filter(r => !r.date.startsWith(prefix));
+    const merged = [...otherMonths, ...records].sort((a,b) => a.date.localeCompare(b.date));
+
     const rows = [['日期','星期','件數','當日單價(AU$)','當日薪資(AU$)','備註']];
-    sorted.forEach(r => {
+    merged.forEach(r => {
       const dt = new Date(r.date + 'T00:00:00');
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
-      rows.push([r.date, '(' + week + ')', r.pkgs, recPrice(r).toFixed(2), (r.pkgs * recPrice(r)).toFixed(2), r.note || '']);
+      rows.push([r.date, '('+week+')', r.pkgs, recPrice(r).toFixed(2), (r.pkgs*recPrice(r)).toFixed(2), r.note||'']);
     });
-    const total = sorted.reduce((s,r) => s+r.pkgs, 0);
-    const totalSalary = sorted.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
-    rows.push(['', '總計', total, '', totalSalary.toFixed(2), '']);
     await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ rows }) });
     setSyncState('synced', '已同步');
     return true;
