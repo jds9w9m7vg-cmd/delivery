@@ -277,13 +277,13 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
         </div>
         <button class="btn-submit" style="padding:11px;font-size:14px" onclick="mSavePrice()">儲存單價</button>
       </div>
+      <button class="btn-submit" style="background:var(--green);border:none;padding:13px;font-size:14px;border-radius:12px;margin-bottom:8px;width:100%" onclick="loadFromSheets()">🔄 手動從試算表讀取</button>
+      <button class="btn-submit" style="background:var(--accent);border:none;padding:13px;font-size:14px;border-radius:12px;margin-bottom:8px;width:100%" onclick="importCorrectData()">📥 匯入正確資料（一鍵）</button>
+      <button class="btn-submit" style="background:var(--red);border:none;padding:13px;font-size:14px;border-radius:12px;width:100%" onclick="pushLocalToSheets()">⬆ 強制上傳本機資料</button>
       <div class="mobile-sum-card" style="background:rgba(74,222,128,.08);border-color:rgba(74,222,128,.3);margin-bottom:12px">
         <div style="font-size:13px;color:var(--green)">✅ 已連線 Google 試算表</div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px">新增記錄會自動同步</div>
       </div>
-      <button class="btn-submit" style="background:var(--green);border:none;padding:13px;font-size:14px;border-radius:12px;margin-bottom:8px;width:100%" onclick="loadFromSheets()">🔄 手動從試算表讀取</button>
-      <button class="btn-submit" style="background:var(--accent);border:none;padding:13px;font-size:14px;border-radius:12px;margin-bottom:8px;width:100%" onclick="importCorrectData()">📥 匯入正確資料（一鍵）</button>
-      <button class="btn-submit" style="background:var(--red);border:none;padding:13px;font-size:14px;border-radius:12px;width:100%" onclick="pushLocalToSheets()">⬆ 強制上傳本機資料</button>
     </div>
   </div>
 
@@ -484,10 +484,14 @@ async function loadFromSheets() {
       date = String(date).trim();
       // Handle both YYYY-MM-DD and other formats
       if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) {
-        // Try to parse as date
+        // Try to parse as date using local timezone
         const parsed = new Date(date);
         if (isNaN(parsed.getTime())) return;
-        date = parsed.toISOString().slice(0,10);
+        // Use local date parts to avoid timezone shift
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth()+1).padStart(2,'0');
+        const d2 = String(parsed.getDate()).padStart(2,'0');
+        date = `${y}-${m}-${d2}`;
       }
       const pkgsRaw = row[2];
       if (pkgsRaw === '' || pkgsRaw === '總計' || pkgsRaw === null || pkgsRaw === undefined) return;
