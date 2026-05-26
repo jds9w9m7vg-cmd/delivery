@@ -281,6 +281,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
         <div style="font-size:13px;color:var(--green)">✅ 已連線 Google 試算表</div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px">新增記錄會自動同步</div>
       </div>
+      <button class="btn-submit" style="background:var(--green);border:none;padding:13px;font-size:14px;border-radius:12px" onclick="loadFromSheets()">🔄 手動從試算表讀取資料</button>
     </div>
   </div>
 
@@ -490,7 +491,7 @@ async function loadFromSheets() {
       if (isNaN(pkgs) || pkgs <= 0) return;
       const dayPrice = parseFloat(row[3]) || null;
       const note = String(row[5] || '').trim();
-      const d = new Date(date + 'T00:00:00');
+      const d = parseLocalDate(date );
       const key = 'records_' + d.getFullYear() + '_' + d.getMonth();
       if (!byMonth[key]) byMonth[key] = [];
       if (!byMonth[key].find(r => r.date === date)) {
@@ -551,7 +552,7 @@ async function syncToSheets(records) {
 
     const rows = [['日期','星期','件數','當日單價(AU$)','當日薪資(AU$)','備註']];
     merged.forEach(r => {
-      const dt = new Date(r.date + 'T00:00:00');
+      const dt = parseLocalDate(r.date);
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
       rows.push([r.date, '('+week+')', r.pkgs, recPrice(r).toFixed(2), (r.pkgs*recPrice(r)).toFixed(2), r.note||'']);
     });
@@ -645,7 +646,7 @@ function getPayPeriods() {
 }
 
 function fmtPeriod(p) {
-  const s = new Date(p.start+'T00:00:00'), e = new Date(p.end+'T00:00:00');
+  const s = parseLocalDate(p.start), e = parseLocalDate(p.end);
   return `${s.getMonth()+1}/${s.getDate()} ～ ${e.getMonth()+1}/${e.getDate()}`;
 }
 
@@ -712,7 +713,7 @@ function calcPayPeriod() {
     </div>
     <div class="section-label">明細 ${start} ～ ${end}</div>
     ${filtered.map(r => {
-      const dt = new Date(r.date + 'T00:00:00');
+      const dt = parseLocalDate(r.date );
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
       return `<div class="record-item">
         <div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div>
@@ -724,6 +725,15 @@ function calcPayPeriod() {
 }
 
 // ── Core actions ──
+function parseLocalDate(dateStr) {
+  // Parse YYYY-MM-DD without timezone conversion
+  const parts = dateStr.split('-');
+  return new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+}
+function weekStr(dateStr) {
+  return '週' + ['日','一','二','三','四','五','六'][parseLocalDate(dateStr).getDay()];
+}
+
 function recPrice(r) { return (r.dayPrice != null && !isNaN(r.dayPrice)) ? r.dayPrice : getPrice(); }
 async function addRecord() {
   const date = document.getElementById('dateInput').value;
@@ -732,7 +742,7 @@ async function addRecord() {
   const dayPriceRaw = document.getElementById('dayPriceInput').value;
   const dayPrice = dayPriceRaw ? parseFloat(dayPriceRaw) : null;
   if (!date || isNaN(pkgs) || pkgs < 0) { showToast('請填入有效日期與件數'); return; }
-  const d = new Date(date + 'T00:00:00');
+  const d = parseLocalDate(date );
   if (d.getFullYear() !== currentYear || d.getMonth() !== currentMonth) {
     showToast('日期不在目前月份，請切換月份'); return;
   }
@@ -810,7 +820,7 @@ function renderTodayPreview() {
   const el = document.getElementById('todayPreview');
   if (rec) {
     el.innerHTML = `<div class="record-item">
-      <div class="record-date"><div class="day">${new Date(t+'T00:00:00').getDate()}</div><div>${new Date(t+'T00:00:00').toLocaleDateString('zh-TW',{weekday:'short'})}</div></div>
+      <div class="record-date"><div class="day">${parseLocalDate(t).getDate()}</div><div>${weekStr(t)}</div></div>
       <div class="record-info"><div class="record-pkgs">今日 <span>${rec.pkgs}</span> 件</div>${rec.note?`<div class="record-note">${rec.note}</div>`:''}</div>
       <div class="record-earn">AU$${(rec.pkgs*recPrice(rec)).toFixed(2)}</div>
     </div>`;
@@ -824,9 +834,9 @@ function renderList() {
   const el = document.getElementById('listContent');
   if (!records.length) { el.innerHTML = '<div class="empty">本月尚無記錄</div>'; return; }
   el.innerHTML = records.map(r => {
-    const dt = new Date(r.date + 'T00:00:00');
+    const dt = parseLocalDate(r.date );
     return `<div class="record-item">
-      <div class="record-date"><div class="day">${dt.getDate()}</div><div>${dt.toLocaleDateString('zh-TW',{weekday:'short'})}</div></div>
+      <div class="record-date"><div class="day">${dt.getDate()}</div><div>${weekStr(r.date)}</div></div>
       <div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div>
       <div style="text-align:right"><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div>${r.dayPrice!=null?`<div style="font-size:10px;color:var(--text3)">AU$${recPrice(r)}/件</div>`:''}</div>
       <button class="btn-del" onclick="deleteRecord('${r.date}')">×</button>
@@ -867,7 +877,7 @@ function exportCSV() {
   if (!records.length) { showToast('本月尚無記錄'); return; }
   let csv = '\uFEFF日期,星期,件數,當日薪資(AU$),備註\n';
   records.forEach(r => {
-    const dt = new Date(r.date + 'T00:00:00');
+    const dt = parseLocalDate(r.date );
     const week = ['日','一','二','三','四','五','六'][dt.getDay()];
     csv += `${r.date},${week},${r.pkgs},${recPrice(r).toFixed(2)},${(r.pkgs*recPrice(r)).toFixed(2)},"${r.note||''}"\n`;
   });
@@ -958,8 +968,8 @@ function mCalcPay() {
   if (!start || !end || start > end) { showToast('請選擇有效日期'); return; }
   const price = getPrice();
   let allRecords = [];
-  let cur = new Date(new Date(start+'T00:00:00').getFullYear(), new Date(start+'T00:00:00').getMonth(), 1);
-  const endMonth = new Date(new Date(end+'T00:00:00').getFullYear(), new Date(end+'T00:00:00').getMonth(), 1);
+  let cur = parseLocalDate(new Date(start).getFullYear(), parseLocalDate(start).getMonth(), 1);
+  const endMonth = parseLocalDate(new Date(end).getFullYear(), parseLocalDate(end).getMonth(), 1);
   while (cur <= endMonth) {
     const key = 'records_' + cur.getFullYear() + '_' + cur.getMonth();
     try { allRecords = allRecords.concat(JSON.parse(localStorage.getItem(key) || '[]')); } catch {}
@@ -976,7 +986,7 @@ function mCalcPay() {
       <div class="mobile-sum-card accent"><div class="mobile-sum-label">本期薪資</div><div class="mobile-sum-value" style="font-size:17px">AU$${totalSalary.toFixed(2)}</div><div class="mobile-sum-sub">${start.slice(5).replace('-','/')} ～ ${end.slice(5).replace('-','/')}</div></div>
     </div>
     ${filtered.map(r => {
-      const dt = new Date(r.date+'T00:00:00');
+      const dt = parseLocalDate(r.date);
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
       return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div></div><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div></div>`;
     }).join('')}`;
@@ -1024,7 +1034,7 @@ function mRenderList() {
   const el = document.getElementById('mListContent');
   if (!records.length) { el.innerHTML = '<div class="empty">本月尚無記錄</div>'; return; }
   el.innerHTML = records.map(r => {
-    const dt = new Date(r.date+'T00:00:00');
+    const dt = parseLocalDate(r.date);
     const week = ['日','一','二','三','四','五','六'][dt.getDay()];
     return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div><button class="btn-del" onclick="mDeleteRecord('${r.date}')" style="opacity:1">×</button></div>`;
   }).join('');
@@ -1061,7 +1071,7 @@ function mUpdateAll() {
   if (el) {
     if (!recent.length) { el.innerHTML = '<div class="empty" style="padding:16px 0">尚無記錄</div>'; return; }
     el.innerHTML = recent.map(r => {
-      const dt = new Date(r.date+'T00:00:00');
+      const dt = parseLocalDate(r.date);
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
       return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div></div><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div></div>`;
     }).join('');
