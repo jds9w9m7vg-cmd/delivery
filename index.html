@@ -281,7 +281,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
         <div style="font-size:13px;color:var(--green)">✅ 已連線 Google 試算表</div>
         <div style="font-size:11px;color:var(--text3);margin-top:4px">新增記錄會自動同步</div>
       </div>
-      <button class="btn-submit" style="background:var(--green);border:none;padding:13px;font-size:14px;border-radius:12px" onclick="loadFromSheets()">🔄 手動從試算表讀取資料</button>
+      <button class="btn-submit" style="background:var(--green);border:none;padding:13px;font-size:14px;border-radius:12px;margin-bottom:8px;width:100%" onclick="loadFromSheets()">🔄 手動從試算表讀取</button>
+      <button class="btn-submit" style="background:var(--accent);border:none;padding:13px;font-size:14px;border-radius:12px;margin-bottom:8px;width:100%" onclick="importCorrectData()">📥 匯入正確資料（一鍵）</button>
+      <button class="btn-submit" style="background:var(--red);border:none;padding:13px;font-size:14px;border-radius:12px;width:100%" onclick="pushLocalToSheets()">⬆ 強制上傳本機資料</button>
     </div>
   </div>
 
@@ -410,7 +412,9 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
           <div class="settings-card">
             <div class="settings-title" style="color:var(--amber)">⚠️ 注意</div>
             <div class="settings-desc" style="margin-bottom:8px">API 金鑰只存在瀏覽器本機，不會傳送到其他地方。試算表須設為可編輯才能寫入。</div>
-            <button class="btn-save" style="background:var(--green);border-color:var(--green2)" onclick="loadFromSheets()">🔄 手動從試算表讀取資料</button>
+            <button class="btn-save" style="background:var(--green);border-color:var(--green2);margin-bottom:8px" onclick="loadFromSheets()">🔄 手動從試算表讀取資料</button>
+            <button class="btn-save" style="background:var(--accent3);margin-bottom:8px" onclick="importCorrectData()">📥 匯入正確資料（一鍵）</button>
+            <button class="btn-save" style="background:var(--red);border-color:var(--red)" onclick="pushLocalToSheets()">⬆ 強制上傳本機資料到試算表</button>
           </div>
         </div>
       </div>
@@ -491,7 +495,7 @@ async function loadFromSheets() {
       if (isNaN(pkgs) || pkgs <= 0) return;
       const dayPrice = parseFloat(row[3]) || null;
       const note = String(row[5] || '').trim();
-      const d = parseLocalDate(date );
+      const d = parseLocalDate(date);
       const key = 'records_' + d.getFullYear() + '_' + d.getMonth();
       if (!byMonth[key]) byMonth[key] = [];
       if (!byMonth[key].find(r => r.date === date)) {
@@ -713,7 +717,7 @@ function calcPayPeriod() {
     </div>
     <div class="section-label">明細 ${start} ～ ${end}</div>
     ${filtered.map(r => {
-      const dt = parseLocalDate(r.date );
+      const dt = parseLocalDate(r.date);
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
       return `<div class="record-item">
         <div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div>
@@ -742,7 +746,7 @@ async function addRecord() {
   const dayPriceRaw = document.getElementById('dayPriceInput').value;
   const dayPrice = dayPriceRaw ? parseFloat(dayPriceRaw) : null;
   if (!date || isNaN(pkgs) || pkgs < 0) { showToast('請填入有效日期與件數'); return; }
-  const d = parseLocalDate(date );
+  const d = parseLocalDate(date);
   if (d.getFullYear() !== currentYear || d.getMonth() !== currentMonth) {
     showToast('日期不在目前月份，請切換月份'); return;
   }
@@ -834,7 +838,7 @@ function renderList() {
   const el = document.getElementById('listContent');
   if (!records.length) { el.innerHTML = '<div class="empty">本月尚無記錄</div>'; return; }
   el.innerHTML = records.map(r => {
-    const dt = parseLocalDate(r.date );
+    const dt = parseLocalDate(r.date);
     return `<div class="record-item">
       <div class="record-date"><div class="day">${dt.getDate()}</div><div>${weekStr(r.date)}</div></div>
       <div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div>
@@ -877,7 +881,7 @@ function exportCSV() {
   if (!records.length) { showToast('本月尚無記錄'); return; }
   let csv = '\uFEFF日期,星期,件數,當日薪資(AU$),備註\n';
   records.forEach(r => {
-    const dt = parseLocalDate(r.date );
+    const dt = parseLocalDate(r.date);
     const week = ['日','一','二','三','四','五','六'][dt.getDay()];
     csv += `${r.date},${week},${r.pkgs},${recPrice(r).toFixed(2)},${(r.pkgs*recPrice(r)).toFixed(2)},"${r.note||''}"\n`;
   });
@@ -901,6 +905,85 @@ updateAll();
 
 
 
+
+function importCorrectData() {
+  if (!confirm('這會把正確的送貨資料匯入 app，確定嗎？')) return;
+  const data = [
+    {date:'2026-04-27',pkgs:177,note:''},
+    {date:'2026-04-28',pkgs:88,note:''},
+    {date:'2026-04-29',pkgs:134,note:''},
+    {date:'2026-04-30',pkgs:128,note:''},
+    {date:'2026-05-01',pkgs:128,note:''},
+    {date:'2026-05-04',pkgs:185,note:''},
+    {date:'2026-05-05',pkgs:169,note:''},
+    {date:'2026-05-06',pkgs:136,note:''},
+    {date:'2026-05-07',pkgs:159,note:''},
+    {date:'2026-05-08',pkgs:167,note:''},
+    {date:'2026-05-11',pkgs:203,note:''},
+    {date:'2026-05-12',pkgs:169,note:''},
+    {date:'2026-05-13',pkgs:192,note:''},
+    {date:'2026-05-14',pkgs:142,note:''},
+    {date:'2026-05-15',pkgs:170,note:''},
+    {date:'2026-05-18',pkgs:205,note:''},
+    {date:'2026-05-19',pkgs:111,note:''},
+    {date:'2026-05-20',pkgs:186,note:''},
+    {date:'2026-05-21',pkgs:165,note:''},
+    {date:'2026-05-22',pkgs:159,note:''},
+    {date:'2026-05-25',pkgs:233,note:''},
+    {date:'2026-05-26',pkgs:168,note:''},
+  ];
+  // Clear all records first
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('records_')) localStorage.removeItem(key);
+  }
+  // Group by month and save
+  const byMonth = {};
+  data.forEach(r => {
+    const d = parseLocalDate(r.date);
+    const key = 'records_' + d.getFullYear() + '_' + d.getMonth();
+    if (!byMonth[key]) byMonth[key] = [];
+    byMonth[key].push({date: r.date, pkgs: r.pkgs, note: r.note, dayPrice: null});
+  });
+  Object.entries(byMonth).forEach(([key, records]) => {
+    localStorage.setItem(key, JSON.stringify(records));
+  });
+  updateAll();
+  if (typeof mUpdateAll === 'function') mUpdateAll();
+  renderList();
+  showToast('已匯入 ' + data.length + ' 筆正確資料！');
+  // Push to sheets
+  setTimeout(async () => {
+    const allRecs = await getAllLocalRecords();
+    await pushAllToSheets(allRecs);
+  }, 500);
+}
+
+async function pushAllToSheets(allRecords) {
+  setSyncState('syncing', '上傳中...');
+  try {
+    const sorted = [...allRecords].sort((a,b) => a.date.localeCompare(b.date));
+    const rows = [['日期','星期','件數','當日單價(AU$)','當日薪資(AU$)','備註']];
+    sorted.forEach(r => {
+      const dt = parseLocalDate(r.date);
+      const week = ['日','一','二','三','四','五','六'][dt.getDay()];
+      rows.push([r.date, '('+week+')', r.pkgs, recPrice(r).toFixed(2), (r.pkgs*recPrice(r)).toFixed(2), r.note||'']);
+    });
+    await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ rows }) });
+    setSyncState('synced', '已同步');
+    showToast('已同步到試算表 ✓');
+  } catch(e) {
+    setSyncState('error', '上傳失敗');
+  }
+}
+
+async function pushLocalToSheets() {
+  if (!confirm('確定要把本機資料強制上傳到試算表嗎？這會覆蓋試算表現有資料。')) return;
+  const allRecs = await getAllLocalRecords();
+  if (!allRecs.length) { showToast('本機沒有資料'); return; }
+  await pushAllToSheets(allRecs);
+}
+
 function switchRight(view) {
   document.querySelectorAll('.right-view').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
@@ -916,8 +999,7 @@ function switchRight(view) {
 document.getElementById('dateInput').value = today();
 updateAll();
 renderList();
-// Auto-load from Google Sheets on startup
-loadFromSheets();
+// Auto-load removed - use manual sync button to avoid overwriting local data
 
 // ══════════════════════════════
 // MOBILE JS
@@ -968,8 +1050,8 @@ function mCalcPay() {
   if (!start || !end || start > end) { showToast('請選擇有效日期'); return; }
   const price = getPrice();
   let allRecords = [];
-  let cur = parseLocalDate(new Date(start).getFullYear(), parseLocalDate(start).getMonth(), 1);
-  const endMonth = parseLocalDate(new Date(end).getFullYear(), parseLocalDate(end).getMonth(), 1);
+  let cur = new Date(parseLocalDate(start).getFullYear(), parseLocalDate(start).getMonth(), 1);
+  const endMonth = new Date(parseLocalDate(end).getFullYear(), parseLocalDate(end).getMonth(), 1);
   while (cur <= endMonth) {
     const key = 'records_' + cur.getFullYear() + '_' + cur.getMonth();
     try { allRecords = allRecords.concat(JSON.parse(localStorage.getItem(key) || '[]')); } catch {}
