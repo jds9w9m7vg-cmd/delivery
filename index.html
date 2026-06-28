@@ -173,6 +173,12 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
 
 /* hide mobile elements on desktop */
 .mobile-title, .mobile-month-nav, .mobile-content, .mobile-nav { display:none }
+
+.allowance-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.allowance-chip{display:flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 11px;cursor:pointer;font-size:13px;color:var(--text2);transition:all .15s;user-select:none}
+.allowance-chip.active{background:rgba(124,106,255,.2);border-color:var(--accent);color:var(--accent2)}
+.chip-price{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3)}
+.allowance-chip.active .chip-price{color:var(--accent2)}
 </style>
 </head>
 <body>
@@ -220,6 +226,14 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
           <div class="mobile-field">
             <label>備註 — 選填</label>
             <input type="text" id="mNote" placeholder="例：加班..." />
+          </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px">當日補助</div>
+          <div class="allowance-row">
+            <span class="allowance-chip" id="mchip-gas" onclick="toggleChip('gas','m')"><input type="checkbox" id="mallow-gas"> 汽油 <span class="chip-price">+$10</span></span>
+            <span class="allowance-chip" id="mchip-remote" onclick="toggleChip('remote','m')"><input type="checkbox" id="mallow-remote"> 偏遠 <span class="chip-price">+$10</span></span>
+            <span class="allowance-chip" id="mchip-other" onclick="toggleChip('other','m')"><input type="checkbox" id="mallow-other"> 其他 +$<input type="number" id="mallow-other-amt" value="0" min="0" step="1" onclick="event.stopPropagation()" style="width:36px;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--accent2);font-family:'DM Mono',monospace;font-size:11px;outline:none"></span>
           </div>
         </div>
         <button class="btn-submit" id="mAddBtn" onclick="mAddRecord()">儲存今日記錄</button>
@@ -562,7 +576,7 @@ async function syncToSheets(records) {
     merged.forEach(r => {
       const dt = parseLocalDate(r.date);
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
-      rows.push([r.date, '('+week+')', r.pkgs, recPrice(r).toFixed(2), (r.pkgs*recPrice(r)).toFixed(2), r.note||'']);
+      rows.push([r.date, '('+week+')', r.pkgs, recPrice(r).toFixed(2), (recTotal(r)).toFixed(2), r.note||'']);
     });
     await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ rows }) });
     setSyncState('synced', '已同步');
@@ -705,7 +719,7 @@ function calcPayPeriod() {
     .sort((a,b) => a.date.localeCompare(b.date));
 
   const totalPkgs = filtered.reduce((s,r) => s+r.pkgs, 0);
-  const totalSalary = filtered.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
+  const totalSalary = filtered.reduce((s,r) => s + recTotal(r), 0);
   const workDays = filtered.length;
 
   const el = document.getElementById('payResult');
@@ -726,7 +740,7 @@ function calcPayPeriod() {
       return `<div class="record-item">
         <div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div>
         <div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div>
-        <div style="text-align:right"><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div>${r.dayPrice!=null?`<div style="font-size:10px;color:var(--text3)">AU$${recPrice(r)}/件</div>`:''}</div>
+        <div style="text-align:right"><div class="record-earn">AU$${(recTotal(r)).toFixed(2)}</div>${r.dayPrice!=null?`<div style="font-size:10px;color:var(--text3)">AU$${recPrice(r)}/件</div>`:''}</div>
       </div>`;
     }).join('')}
   `;
@@ -742,13 +756,47 @@ function weekStr(dateStr) {
   return '週' + ['日','一','二','三','四','五','六'][parseLocalDate(dateStr).getDay()];
 }
 
+
+function toggleChip(type, prefix) {
+  prefix = prefix || '';
+  var cb = document.getElementById(prefix+'allow-'+type);
+  var chip = document.getElementById(prefix+'chip-'+type);
+  if (!cb || !chip) return;
+  cb.checked = !cb.checked;
+  chip.classList.toggle('active', cb.checked);
+}
+function getAllowance(prefix) {
+  prefix = prefix || '';
+  var total = 0; var parts = [];
+  if (document.getElementById(prefix+'allow-gas') && document.getElementById(prefix+'allow-gas').checked) { total+=10; parts.push('汽油+$10'); }
+  if (document.getElementById(prefix+'allow-remote') && document.getElementById(prefix+'allow-remote').checked) { total+=10; parts.push('偏遠+$10'); }
+  var otherCb = document.getElementById(prefix+'allow-other');
+  if (otherCb && otherCb.checked) {
+    var amt = parseFloat(document.getElementById(prefix+'allow-other-amt').value)||0;
+    total+=amt; if(amt>0) parts.push('其他+$'+amt);
+  }
+  return {total:total, label:parts.join(' ')};
+}
+function resetAllowance(prefix) {
+  prefix = prefix || '';
+  ['gas','remote','other'].forEach(function(t){
+    var cb = document.getElementById(prefix+'allow-'+t);
+    var chip = document.getElementById(prefix+'chip-'+t);
+    if(cb) cb.checked=false;
+    if(chip) chip.classList.remove('active');
+  });
+  var el = document.getElementById(prefix+'allow-other-amt');
+  if(el) el.value=0;
+}
 function recPrice(r) { return (r.dayPrice != null && !isNaN(r.dayPrice)) ? r.dayPrice : getPrice(); }
+function recTotal(r) { return recTotal(r) + (r.allowance || 0); }
 async function addRecord() {
   const date = document.getElementById('dateInput').value;
   const pkgs = parseInt(document.getElementById('pkgInput').value);
   const note = document.getElementById('noteInput').value.trim();
   const dayPriceRaw = document.getElementById('dayPriceInput').value;
   const dayPrice = dayPriceRaw ? parseFloat(dayPriceRaw) : null;
+  const allowance = getAllowance();
   if (!date || isNaN(pkgs) || pkgs < 0) { showToast('請填入有效日期與件數'); return; }
   const d = parseLocalDate(date);
   if (d.getFullYear() !== currentYear || d.getMonth() !== currentMonth) {
@@ -759,12 +807,13 @@ async function addRecord() {
   let records = loadRecords();
   const idx = records.findIndex(r => r.date === date);
   const isUpdate = idx >= 0;
-  if (isUpdate) records[idx] = { date, pkgs, note, dayPrice };
-  else records.push({ date, pkgs, note, dayPrice });
+  if (isUpdate) records[idx] = { date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label };
+  else records.push({ date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label });
   saveRecords(records);
   document.getElementById('pkgInput').value = '';
   document.getElementById('noteInput').value = '';
   document.getElementById('dayPriceInput').value = '';
+  resetAllowance();
   updateAll();
   const synced = await syncToSheets(records);
   showToast(isUpdate ? '已更新 ' + formatDate(date) + (synced ? ' ✓ 已同步' : '') : '已新增 ' + formatDate(date) + (synced ? ' ✓ 已同步' : ' 🎉'));
@@ -810,7 +859,7 @@ function updateSummary() {
   const records = loadRecords();
   const price = getPrice();
   const total = records.reduce((s,r) => s+r.pkgs, 0);
-  const salary = records.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
+  const salary = records.reduce((s,r) => s + recTotal(r), 0);
   const days = records.length;
   document.getElementById('sumPkgs').textContent = total.toLocaleString();
   document.getElementById('sumDays').textContent = days + ' 個工作天';
@@ -846,7 +895,7 @@ function renderList() {
     return `<div class="record-item">
       <div class="record-date"><div class="day">${dt.getDate()}</div><div>${weekStr(r.date)}</div></div>
       <div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div>
-      <div style="text-align:right"><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div>${r.dayPrice!=null?`<div style="font-size:10px;color:var(--text3)">AU$${recPrice(r)}/件</div>`:''}</div>
+      <div style="text-align:right"><div class="record-earn">AU$${(recTotal(r)).toFixed(2)}</div>${r.dayPrice!=null?`<div style="font-size:10px;color:var(--text3)">AU$${recPrice(r)}/件</div>`:''}</div>
       <button class="btn-del" onclick="deleteRecord('${r.date}')">×</button>
     </div>`;
   }).join('');
@@ -862,7 +911,7 @@ function renderCharts() {
   const labels = records.map(r => formatDate(r.date));
   const pkgsData = records.map(r => r.pkgs);
   let cum = 0;
-  const cumData = records.map(r => { cum += r.pkgs * recPrice(r); return parseFloat(cum.toFixed(2)); });
+  const cumData = records.map(r => { cum += recTotal(r); return parseFloat(cum.toFixed(2)); });
   const chartDef = {
     responsive:true, maintainAspectRatio:false,
     plugins:{legend:{display:false},tooltip:{backgroundColor:'#1e1e35',titleColor:'#a09bb8',bodyColor:'#f0eeff',borderColor:'rgba(124,106,255,0.3)',borderWidth:1}},
@@ -887,7 +936,7 @@ function exportCSV() {
   records.forEach(r => {
     const dt = parseLocalDate(r.date);
     const week = ['日','一','二','三','四','五','六'][dt.getDay()];
-    csv += `${r.date},${week},${r.pkgs},${recPrice(r).toFixed(2)},${(r.pkgs*recPrice(r)).toFixed(2)},"${r.note||''}"\n`;
+    csv += `${r.date},${week},${r.pkgs},${recPrice(r).toFixed(2)},${(recTotal(r)).toFixed(2)},"${r.note||''}"\n`;
   });
   const total = records.reduce((s,r)=>s+r.pkgs,0);
   csv += `\n總計,,${total},${(total*price).toFixed(2)},`;
@@ -971,7 +1020,7 @@ async function pushAllToSheets(allRecords) {
     sorted.forEach(r => {
       const dt = parseLocalDate(r.date);
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
-      rows.push([r.date, '('+week+')', r.pkgs, recPrice(r).toFixed(2), (r.pkgs*recPrice(r)).toFixed(2), r.note||'']);
+      rows.push([r.date, '('+week+')', r.pkgs, recPrice(r).toFixed(2), (recTotal(r)).toFixed(2), r.note||'']);
     });
     await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ rows }) });
     setSyncState('synced', '已同步');
@@ -1034,13 +1083,14 @@ async function mAddRecord() {
   let records = loadRecords();
   const idx = records.findIndex(r => r.date === date);
   const isUpdate = idx >= 0;
-  if (isUpdate) records[idx] = { date, pkgs, note, dayPrice };
-  else records.push({ date, pkgs, note, dayPrice });
+  if (isUpdate) records[idx] = { date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label };
+  else records.push({ date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label });
   saveRecords(records);
   mPkgStr = '0';
   document.getElementById('mPkgDisplay').textContent = '0';
   document.getElementById('mNote').value = '';
   document.getElementById('mDayPrice').value = '';
+  resetAllowance('m');
   mUpdateAll();
   const synced = await syncToSheets(records);
   showToast(isUpdate ? '已更新 ✓' : '已儲存' + (synced ? ' ✓ 同步' : ' 🎉'));
@@ -1063,7 +1113,7 @@ function mCalcPay() {
   }
   const filtered = allRecords.filter(r => r.date >= start && r.date <= end).sort((a,b) => a.date.localeCompare(b.date));
   const totalPkgs = filtered.reduce((s,r) => s+r.pkgs, 0);
-  const totalSalary = filtered.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
+  const totalSalary = filtered.reduce((s,r) => s + recTotal(r), 0);
   const el = document.getElementById('mPayResult');
   if (!filtered.length) { el.innerHTML = '<div class="empty">這段期間沒有記錄</div>'; return; }
   el.innerHTML = `
@@ -1074,7 +1124,7 @@ function mCalcPay() {
     ${filtered.map(r => {
       const dt = parseLocalDate(r.date);
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
-      return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div></div><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div></div>`;
+      return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div></div><div class="record-earn">AU$${(recTotal(r)).toFixed(2)}</div></div>`;
     }).join('')}`;
 }
 
@@ -1122,7 +1172,7 @@ function mRenderList() {
   el.innerHTML = records.map(r => {
     const dt = parseLocalDate(r.date);
     const week = ['日','一','二','三','四','五','六'][dt.getDay()];
-    return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div><button class="btn-del" onclick="mDeleteRecord('${r.date}')" style="opacity:1">×</button></div>`;
+    return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div>${r.note?`<div class="record-note">${r.note}</div>`:''}</div><div class="record-earn">AU$${(recTotal(r)).toFixed(2)}</div><button class="btn-del" onclick="mDeleteRecord('${r.date}')" style="opacity:1">×</button></div>`;
   }).join('');
 }
 
@@ -1139,7 +1189,7 @@ async function mDeleteRecord(date) {
 function mUpdateAll() {
   const records = loadRecords();
   const total = records.reduce((s,r) => s+r.pkgs, 0);
-  const salary = records.reduce((s,r) => s + r.pkgs * recPrice(r), 0);
+  const salary = records.reduce((s,r) => s + recTotal(r), 0);
   const days = records.length;
   document.getElementById('mSumPkgs').textContent = total.toLocaleString();
   document.getElementById('mSumDays').textContent = days + ' 個工作天';
@@ -1159,7 +1209,7 @@ function mUpdateAll() {
     el.innerHTML = recent.map(r => {
       const dt = parseLocalDate(r.date);
       const week = ['日','一','二','三','四','五','六'][dt.getDay()];
-      return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div></div><div class="record-earn">AU$${(r.pkgs*recPrice(r)).toFixed(2)}</div></div>`;
+      return `<div class="record-item"><div class="record-date"><div class="day">${dt.getDate()}</div><div>(${week})</div></div><div class="record-info"><div class="record-pkgs"><span>${r.pkgs}</span> 件</div></div><div class="record-earn">AU$${(recTotal(r)).toFixed(2)}</div></div>`;
     }).join('');
   }
   // also load today's existing record into numpad if exists
