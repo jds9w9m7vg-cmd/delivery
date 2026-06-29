@@ -478,7 +478,7 @@ async function sheetsRequest(method, path, body) {
   return res.json();
 }
 
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtO3YhtPJtRFwMnDk3whgdsEMMKleb6tpVDcnWP9NIYPN35aDHVUa3CXhDsS6Eo6VD/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwXQMCfKtivUqV6lF3ZLD_13D0LqRBoN30DJR2ldqAky4evxMefuQuY4knTwuOTqR5Z/exec';
 
 async function loadFromSheets() {
   setSyncState('syncing', '讀取中...');
@@ -799,20 +799,24 @@ async function addRecord() {
   }
   const btn = document.getElementById('addBtn');
   btn.disabled = true; btn.textContent = '儲存中...';
-  let records = loadRecords();
-  const idx = records.findIndex(r => r.date === date);
-  const isUpdate = idx >= 0;
-  if (isUpdate) records[idx] = { date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label };
-  else records.push({ date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label });
-  saveRecords(records);
-  document.getElementById('pkgInput').value = '';
-  document.getElementById('noteInput').value = '';
-  document.getElementById('dayPriceInput').value = '';
-  resetAllowance();
-  updateAll();
-  const synced = await syncToSheets(records);
-  showToast(isUpdate ? '已更新 ' + formatDate(date) + (synced ? ' ✓ 已同步' : '') : '已新增 ' + formatDate(date) + (synced ? ' ✓ 已同步' : ' 🎉'));
-  btn.disabled = false; btn.textContent = '新增記錄';
+  try {
+    let records = loadRecords();
+    const idx = records.findIndex(r => r.date === date);
+    const isUpdate = idx >= 0;
+    if (isUpdate) records[idx] = { date, pkgs, note, dayPrice, allowance: allowance.total, allowanceLabel: allowance.label };
+    else records.push({ date, pkgs, note, dayPrice, allowance: allowance.total, allowanceLabel: allowance.label });
+    saveRecords(records);
+    document.getElementById('pkgInput').value = '';
+    document.getElementById('noteInput').value = '';
+    document.getElementById('dayPriceInput').value = '';
+    resetAllowance();
+    updateAll();
+    renderList();
+    const synced = await syncToSheets(records);
+    showToast(isUpdate ? '已更新 ' + formatDate(date) + (synced ? ' ✓ 已同步' : '') : '已新增 ' + formatDate(date) + (synced ? ' ✓ 已同步' : ' 🎉'));
+  } finally {
+    btn.disabled = false; btn.textContent = '新增記錄';
+  }
 }
 
 async function deleteRecord(date) {
@@ -1095,24 +1099,28 @@ async function mAddRecord() {
   const note = document.getElementById('mNote').value.trim();
   const dayPriceRaw = document.getElementById('mDayPrice').value;
   const dayPrice = dayPriceRaw ? parseFloat(dayPriceRaw) : null;
+  const mAllowance = getAllowance('m');
   if (!pkgs || pkgs <= 0) { showToast('請輸入件數'); return; }
   const btn = document.getElementById('mAddBtn');
   btn.disabled = true; btn.textContent = '儲存中...';
-  let records = loadRecords();
-  const idx = records.findIndex(r => r.date === date);
-  const isUpdate = idx >= 0;
-  if (isUpdate) records[idx] = { date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label };
-  else records.push({ date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label });
-  saveRecords(records);
-  mPkgStr = '0';
-  document.getElementById('mPkgDisplay').textContent = '0';
-  document.getElementById('mNote').value = '';
-  document.getElementById('mDayPrice').value = '';
-  resetAllowance('m');
-  mUpdateAll();
-  const synced = await syncToSheets(records);
-  showToast(isUpdate ? '已更新 ✓' : '已儲存' + (synced ? ' ✓ 同步' : ' 🎉'));
-  btn.disabled = false; btn.textContent = '儲存今日記錄';
+  try {
+    let records = loadRecords();
+    const idx = records.findIndex(r => r.date === date);
+    const isUpdate = idx >= 0;
+    if (isUpdate) records[idx] = { date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label };
+    else records.push({ date, pkgs, note, dayPrice, allowance: mAllowance.total, allowanceLabel: mAllowance.label });
+    saveRecords(records);
+    mPkgStr = '0';
+    document.getElementById('mPkgDisplay').textContent = '0';
+    document.getElementById('mNote').value = '';
+    document.getElementById('mDayPrice').value = '';
+    resetAllowance('m');
+    mUpdateAll();
+    const synced = await syncToSheets(records);
+    showToast(isUpdate ? '已更新 ✓' : '已儲存' + (synced ? ' ✓ 同步' : ' 🎉'));
+  } finally {
+    btn.disabled = false; btn.textContent = '儲存今日記錄';
+  }
 }
 
 function mCalcPay() {
