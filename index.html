@@ -784,7 +784,7 @@ function resetAllowance(prefix) {
   if(el) el.value=0;
 }
 function recPrice(r) { return (r.dayPrice != null && !isNaN(r.dayPrice)) ? r.dayPrice : getPrice(); }
-function recTotal(r) { return recTotal(r) + (r.allowance || 0); }
+function recTotal(r) { return r.pkgs * recPrice(r) + (r.allowance || 0); }
 async function addRecord() {
   const date = document.getElementById('dateInput').value;
   const pkgs = parseInt(document.getElementById('pkgInput').value);
