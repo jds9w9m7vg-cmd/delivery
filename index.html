@@ -347,7 +347,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.7)}
       <div class="panel-section">
         <div class="price-row">
           <label>預設單價 (AU$)</label>
-          <input type="number" id="priceInput" value="1" min="0.01" step="0.01" onchange="savePrice()" />
+          <input type="number" id="priceInput" value="1.5" min="0.01" step="0.01" onchange="savePrice()" />
         </div>
         <div class="form-title">新增送貨記錄</div>
         <div class="field-row">
@@ -448,7 +448,7 @@ currentMonth = now.getMonth();
 function getKey() { return `records_${currentYear}_${currentMonth}`; }
 function loadRecords() { try { return JSON.parse(localStorage.getItem(getKey()) || '[]'); } catch { return []; } }
 function saveRecords(r) { localStorage.setItem(getKey(), JSON.stringify(r)); }
-function getPrice() { return parseFloat(localStorage.getItem('delivery_price') || '1'); }
+function getPrice() { return parseFloat(localStorage.getItem('delivery_price') || '1.5'); }
 function savePrice() {
   const v = parseFloat(document.getElementById('priceInput').value) || 1;
   localStorage.setItem('delivery_price', v);
@@ -591,10 +591,16 @@ async function syncToSheets(records) {
 async function testConnection() {
   setSyncState('syncing', '測試中...');
   try {
-    await fetch(APPS_SCRIPT_URL, { method: 'POST', body: JSON.stringify({ rows: [['連線測試']] }) });
-    setSyncState('synced', '已連線');
-    renderSyncStatus(true);
-    return true;
+    // GET only - never write test data
+    const res = await fetch(APPS_SCRIPT_URL);
+    const json = await res.json();
+    if (json.status === 'ok') {
+      setSyncState('synced', '已連線');
+      renderSyncStatus(true);
+      return true;
+    } else {
+      throw new Error('回應異常');
+    }
   } catch(e) {
     setSyncState('error', '連線失敗');
     renderSyncStatus(false, e.message);
@@ -962,28 +968,51 @@ updateAll();
 function importCorrectData() {
   if (!confirm('這會把正確的送貨資料匯入 app，確定嗎？')) return;
   const data = [
-    {date:'2026-04-27',pkgs:177,note:''},
-    {date:'2026-04-28',pkgs:88,note:''},
-    {date:'2026-04-29',pkgs:134,note:''},
-    {date:'2026-04-30',pkgs:128,note:''},
-    {date:'2026-05-01',pkgs:128,note:''},
-    {date:'2026-05-04',pkgs:185,note:''},
-    {date:'2026-05-05',pkgs:169,note:''},
-    {date:'2026-05-06',pkgs:136,note:''},
-    {date:'2026-05-07',pkgs:159,note:''},
-    {date:'2026-05-08',pkgs:167,note:''},
-    {date:'2026-05-11',pkgs:203,note:''},
-    {date:'2026-05-12',pkgs:169,note:''},
-    {date:'2026-05-13',pkgs:192,note:''},
-    {date:'2026-05-14',pkgs:142,note:''},
-    {date:'2026-05-15',pkgs:170,note:''},
-    {date:'2026-05-18',pkgs:205,note:''},
-    {date:'2026-05-19',pkgs:111,note:''},
-    {date:'2026-05-20',pkgs:186,note:''},
-    {date:'2026-05-21',pkgs:165,note:''},
-    {date:'2026-05-22',pkgs:159,note:''},
-    {date:'2026-05-25',pkgs:233,note:''},
-    {date:'2026-05-26',pkgs:168,note:''},
+    {date:'2026-04-27',pkgs:177,note:'',dayPrice:1.5},
+    {date:'2026-04-28',pkgs:88,note:'',dayPrice:1.5},
+    {date:'2026-04-29',pkgs:134,note:'',dayPrice:1.5},
+    {date:'2026-04-30',pkgs:128,note:'',dayPrice:1.5},
+    {date:'2026-05-01',pkgs:128,note:'',dayPrice:1.5},
+    {date:'2026-05-04',pkgs:185,note:'',dayPrice:1.5},
+    {date:'2026-05-05',pkgs:169,note:'',dayPrice:1.5},
+    {date:'2026-05-06',pkgs:136,note:'',dayPrice:1.5},
+    {date:'2026-05-07',pkgs:159,note:'',dayPrice:1.5},
+    {date:'2026-05-08',pkgs:167,note:'',dayPrice:1.5},
+    {date:'2026-05-11',pkgs:203,note:'',dayPrice:1.5},
+    {date:'2026-05-12',pkgs:169,note:'',dayPrice:1.5},
+    {date:'2026-05-13',pkgs:192,note:'',dayPrice:1.5},
+    {date:'2026-05-14',pkgs:142,note:'',dayPrice:1.5},
+    {date:'2026-05-15',pkgs:170,note:'',dayPrice:1.5},
+    {date:'2026-05-18',pkgs:205,note:'',dayPrice:1.5},
+    {date:'2026-05-19',pkgs:111,note:'',dayPrice:1.5},
+    {date:'2026-05-20',pkgs:186,note:'',dayPrice:1.5},
+    {date:'2026-05-21',pkgs:165,note:'',dayPrice:1.5},
+    {date:'2026-05-22',pkgs:159,note:'',dayPrice:1.5},
+    {date:'2026-05-25',pkgs:233,note:'',dayPrice:1.5},
+    {date:'2026-05-26',pkgs:168,note:'',dayPrice:1.5},
+    {date:'2026-05-27',pkgs:225,note:'',dayPrice:1.5},
+    {date:'2026-05-28',pkgs:211,note:'',dayPrice:1.5},
+    {date:'2026-05-29',pkgs:198,note:'',dayPrice:1.5},
+    {date:'2026-06-01',pkgs:171,note:'',dayPrice:2.25},
+    {date:'2026-06-02',pkgs:210,note:'',dayPrice:1.5},
+    {date:'2026-06-03',pkgs:203,note:'',dayPrice:1.5},
+    {date:'2026-06-04',pkgs:183,note:'',dayPrice:1.5},
+    {date:'2026-06-05',pkgs:143,note:'',dayPrice:1.5},
+    {date:'2026-06-08',pkgs:221,note:'',dayPrice:1.5},
+    {date:'2026-06-09',pkgs:172,note:'',dayPrice:1.5},
+    {date:'2026-06-10',pkgs:206,note:'',dayPrice:1.5},
+    {date:'2026-06-11',pkgs:235,note:'',dayPrice:1.5},
+    {date:'2026-06-12',pkgs:134,note:'',dayPrice:1.5},
+    {date:'2026-06-15',pkgs:237,note:'',dayPrice:1.5},
+    {date:'2026-06-16',pkgs:199,note:'',dayPrice:1.5},
+    {date:'2026-06-17',pkgs:173,note:'',dayPrice:1.5},
+    {date:'2026-06-18',pkgs:213,note:'',dayPrice:1.5},
+    {date:'2026-06-19',pkgs:164,note:'',dayPrice:1.5},
+    {date:'2026-06-22',pkgs:235,note:'',dayPrice:1.5},
+    {date:'2026-06-23',pkgs:230,note:'',dayPrice:1.5},
+    {date:'2026-06-24',pkgs:202,note:'',dayPrice:1.5},
+    {date:'2026-06-25',pkgs:216,note:'',dayPrice:1.5},
+    {date:'2026-06-26',pkgs:184,note:'',dayPrice:1.5},
   ];
   // Clear all records first
   for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -996,7 +1025,7 @@ function importCorrectData() {
     const d = parseLocalDate(r.date);
     const key = 'records_' + d.getFullYear() + '_' + d.getMonth();
     if (!byMonth[key]) byMonth[key] = [];
-    byMonth[key].push({date: r.date, pkgs: r.pkgs, note: r.note, dayPrice: null});
+    byMonth[key].push({date: r.date, pkgs: r.pkgs, note: r.note, dayPrice: r.dayPrice || null, allowance: r.allowance || 0, allowanceLabel: r.allowanceLabel || ''});
   });
   Object.entries(byMonth).forEach(([key, records]) => {
     localStorage.setItem(key, JSON.stringify(records));
